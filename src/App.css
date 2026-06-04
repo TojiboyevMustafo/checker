@@ -14,7 +14,7 @@ body {
   align-items: center;
   min-height: 100vh;
   min-height: 100dvh;
-  background-color: #c4956a;
+  background-color: #0f172a;
   padding: 16px;
   padding-bottom: max(16px, env(safe-area-inset-bottom));
   box-sizing: border-box;
@@ -478,6 +478,7 @@ body {
   z-index: 2;
   flex-shrink: 0;
   touch-action: manipulation;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); /* Toshlar silliq harakatlanishi uchun */
 }
 
 /* Majburiy yeyish — supka (oq va qora toshlarda) */

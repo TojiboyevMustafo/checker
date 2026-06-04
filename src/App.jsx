@@ -38,6 +38,8 @@
 
   export default function Checkers() {
     const [gameMode, setGameMode] = useState(null);
+    const [menuSubMode, setMenuSubMode] = useState(null); // 'bot' yoki 'friends' tanlovini ushlab turadi
+    const [isSupkaRule, setIsSupkaRule] = useState(false);
     const [botDifficulty, setBotDifficulty] = useState(0);
     const [pieces, setPieces] = useState(initialPieces);
     const [isWhiteTurn, setIsWhiteTurn] = useState(true);
@@ -139,14 +141,14 @@
       if (!selectedId || winner) return { validMoves: [], captures: [] };
       const piece = pieces.find((p) => p.id === selectedId);
       const moves = getMovesForPiece(piece, isWhiteTurn);
-      if (mandatoryCaptures.length > 0) {
+      if (!isSupkaRule && mandatoryCaptures.length > 0) {
         return { validMoves: [], captures: moves.captures };
       }
       return moves;
     }, [selectedId, isWhiteTurn, pieces, winner, mandatoryCaptures]);
 
     const showMoveHints =
-      isTutorialMode || gameMode === "friends" || (gameMode === "bot" && botDifficulty <= 1);
+      isTutorialMode;
 
     useEffect(() => {
       if (!gameMode || winner) return;
@@ -181,9 +183,8 @@
       if (gameMode === "bot" && !isWhiteTurn && !winner) {
         setIsBotThinking(true);
         const delay = botDifficulty === 0 ? 1400 : botDifficulty === 4 ? 1100 : botDifficulty >= 2 ? 800 : 1000;
-        const botDelay = setTimeout(() => {
-          makeBotMove();
-          setIsBotThinking(false);
+        const botDelay = setTimeout(async () => {
+          await makeBotMove();
         }, delay);
         return () => clearTimeout(botDelay);
       }
@@ -237,8 +238,17 @@
 
     const applyMove = (pieceId, row, col, capturedId) => {
       let nextIsWhiteTurn = !isWhiteTurn;
+      let piecesToBurnIds = [];
+
+      // Supka qoidasi: Agar yeyish imkoniyati bor bo'lsa-yu, oddiy yurish qilinsa
+      if (isSupkaRule && !capturedId && mandatoryCaptures.length > 0) {
+        // Faqat bitta toshni yo'qotish: agar yurgan tosh yeyishi kerak bo'lsa o'zi, aks holda majburiylardan biri
+        const burnId = mustCapturePieceIds.has(pieceId) ? pieceId : Array.from(mustCapturePieceIds)[0];
+        piecesToBurnIds = [burnId];
+      }
+
       let newPieces = pieces
-        .filter((p) => p.id !== capturedId)
+        .filter((p) => p.id !== capturedId && !piecesToBurnIds.includes(p.id))
         .map((p) => {
           if (p.id === pieceId) {
             let nextType = p.type;
@@ -283,7 +293,7 @@
         ? currentPiece.type.startsWith("w")
         : currentPiece.type.startsWith("b");
       if (isCorrectTurn) {
-        if (mandatoryCaptures.length > 0) {
+          if (!isSupkaRule && mandatoryCaptures.length > 0) {
           const { captures } = getMovesForPiece(currentPiece, isWhiteTurn);
           if (captures.length === 0) return;
         }
@@ -302,7 +312,7 @@
         return;
       }
 
-      if (mandatoryCaptures.length > 0) return;
+        if (!isSupkaRule && mandatoryCaptures.length > 0) return;
 
       const isTryingNormal = validMoves.some((m) => m.r === row && m.c === col);
       if (isTryingNormal) {
@@ -311,30 +321,50 @@
     }
   };
 
-  const applyBotMove = (fromPiece, to, capturedIds) => {
-    const idsToRemove = Array.isArray(capturedIds) ? capturedIds : [capturedIds].filter(Boolean);
-    setPieces((prev) =>
-      prev
-        .filter((p) => !idsToRemove.includes(p.id))
-        .map((p) => {
-          if (p.id === fromPiece.id) {
-            let nextType = p.type;
-            if (p.type === "b" && to.r === 7) nextType = "bk";
-            return { ...p, r: to.r, c: to.c, type: nextType };
-          }
-          return p;
-        })
-    );
-    setIsWhiteTurn(true);
+    const applyBotMove = async (fromPiece, to, capturedIds, path) => {
+      // Botning yurish yo'li (intermediate squares) va uriladigan toshlar
+      const steps = path && path.length > 0 ? path : [{ r: to.r, c: to.c }];
+      const kills = Array.isArray(capturedIds) ? capturedIds : (capturedIds ? [capturedIds] : []);
+
+      for (let i = 0; i < steps.length; i++) {
+        const step = steps[i];
+        const killId = kills[i];
+
+        // 1. Bot toshini keyingi nuqtaga suramiz (animatsiya bilan)
+        setPieces(prev => prev.map(p => 
+          p.id === fromPiece.id ? { ...p, r: step.r, c: step.c } : p
+        ));
+
+        // Toshning siljishini kutamiz (CSS transition 0.4s bo'lgani uchun 0.5s kutamiz)
+        await new Promise(r => setTimeout(r, 500));
+
+        if (killId) {
+          // 2. Shu qadamdagi raqib toshini olib tashlaymiz
+          setPieces(prev => prev.filter(p => p.id !== killId));
+          // Tosh o'chganidan keyin kichik pauza (ko'zga tashlanishi uchun)
+          await new Promise(r => setTimeout(r, 300));
+        }
+      }
+
+      // Oxirgi nuqtada Damla (King) bo'lishini tekshirish
+      setPieces(prev => prev.map(p => {
+        if (p.id === fromPiece.id && p.type === "b" && p.r === 7) {
+          return { ...p, type: "bk" };
+        }
+        return p;
+      }));
+
+      setIsWhiteTurn(true);
   };
 
-  const makeBotMove = () => {
+  const makeBotMove = async () => {
     const rawMove = pickBotMove(pieces, botDifficulty);
     const formatted = formatBotMove(rawMove);
     
     if (formatted) {
-      applyBotMove(formatted.fromPiece, formatted.to, formatted.capturedId);
+      await applyBotMove(formatted.fromPiece, formatted.to, formatted.capturedIds, formatted.path);
     }
+    setIsBotThinking(false);
   };
 
   const restartGame = () => {
@@ -345,12 +375,14 @@
     setTurnTime(15);
     setWinner(null);
     setGameMode(null);
+      setMenuSubMode(null);
+      setIsSupkaRule(false);
     setIsBotThinking(false);
     setMoveCount(0);
     setTutorialTipIndex(0);
   };
 
-  const startGame = (mode) => {
+    const startGame = (mode, supka) => {
     setPieces(initialPieces);
     setIsWhiteTurn(true);
     setSelectedId(null);
@@ -360,6 +392,7 @@
     setMoveCount(0);
     setTutorialTipIndex(0);
     setGameMode(mode);
+      setIsSupkaRule(supka);
   };
 
   const isHintCell = (r, c) => {
@@ -387,52 +420,76 @@
         </div>
 
         <p className="casual-instruction">
-          Raqibning barcha shashkalarini yeng va g&apos;olib bo&apos;ling!
+          {menuSubMode ? "O'yin qoidasini tanlang:" : "Raqibning barcha shashkalarini yeng va g'olib bo'ling!"}
         </p>
 
         <div className="casual-card">
-          <div className="casual-avatar-circle">
-            <span className="casual-avatar-emoji">{diff.avatar}</span>
-          </div>
+          {!menuSubMode ? (
+            <>
+              <div className="casual-avatar-circle">
+                <span className="casual-avatar-emoji">{diff.avatar}</span>
+              </div>
 
-          <div className="casual-controls-row" style={{ justifyContent: "center" }}>
-            <h2 className={`difficulty-text diff-${botDifficulty}`}>{diff.label}</h2>
-          </div>
-          <p className="difficulty-desc">{diff.desc}</p>
+              <div className="casual-controls-row" style={{ justifyContent: "center" }}>
+                <h2 className={`difficulty-text diff-${botDifficulty}`}>{diff.label}</h2>
+              </div>
+              <p className="difficulty-desc">{diff.desc}</p>
 
-          <div className="slider-wrapper">
-            <input
-              type="range"
-              min="0"
-              max="4"
-              value={botDifficulty}
-              onChange={(e) => setBotDifficulty(Number(e.target.value))}
-              className="casual-slider"
-            />
-            <div className="slider-ticks slider-ticks-5">
-              {DIFFICULTIES.map((d, i) => (
-                <span key={d.label} onClick={() => setBotDifficulty(i)} title={d.desc}>
-                  {i === 0 ? "Boshl." : d.label.split(" ")[0].slice(0, 4)}
-                </span>
-              ))}
-            </div>
-          </div>
+              <div className="slider-wrapper">
+                <input
+                  type="range"
+                  min="0"
+                  max="4"
+                  value={botDifficulty}
+                  onChange={(e) => setBotDifficulty(Number(e.target.value))}
+                  className="casual-slider"
+                />
+                <div className="slider-ticks slider-ticks-5">
+                  {DIFFICULTIES.map((d, i) => (
+                    <span key={d.label} onClick={() => setBotDifficulty(i)} title={d.desc}>
+                      {i === 0 ? "Boshl." : d.label.split(" ")[0].slice(0, 4)}
+                    </span>
+                  ))}
+                </div>
+              </div>
 
-          <button className="casual-main-btn bot-play-btn" onClick={() => startGame("bot")}>
-            <span className="btn-large-icon">🤖</span>
-            <div className="btn-large-lbl">
-              <span>YURISH REJIM</span>
-              <h3>BOTGA</h3>
-            </div>
-          </button>
+              <button className="casual-main-btn bot-play-btn" onClick={() => setMenuSubMode("bot")}>
+                <span className="btn-large-icon">🤖</span>
+                <div className="btn-large-lbl">
+                  <span>YURISH REJIM</span>
+                  <h3>BOTGA</h3>
+                </div>
+              </button>
 
-          <button className="casual-main-btn friend-play-btn" onClick={() => startGame("friends")}>
-            <span className="btn-large-icon">👥</span>
-            <div className="btn-large-lbl">
-              <span>YURISH REJIM</span>
-              <h3>DO&apos;STGA</h3>
-            </div>
-          </button>
+              <button className="casual-main-btn friend-play-btn" onClick={() => setMenuSubMode("friends")}>
+                <span className="btn-large-icon">👥</span>
+                <div className="btn-large-lbl">
+                  <span>YURISH REJIM</span>
+                  <h3>DO'STGA</h3>
+                </div>
+              </button>
+            </>
+          ) : (
+            <>
+              <button className="casual-main-btn bot-play-btn" onClick={() => startGame(menuSubMode, true)}>
+                <span className="btn-large-icon">🔥</span>
+                <div className="btn-large-lbl">
+                  <span>QOIDA</span>
+                  <h3>SUPKA BILAN</h3>
+                </div>
+              </button>
+              <button className="casual-main-btn friend-play-btn" style={{ backgroundColor: "#34495e" }} onClick={() => startGame(menuSubMode, false)}>
+                <span className="btn-large-icon">🛡️</span>
+                <div className="btn-large-lbl">
+                  <span>QOIDA</span>
+                  <h3>SUPKASIZ</h3>
+                </div>
+              </button>
+              <button className="back-btn" style={{ marginTop: '10px', width: '100%' }} onClick={() => setMenuSubMode(null)}>
+                Orqaga
+              </button>
+            </>
+          )}
         </div>
       </div>
     );
@@ -525,7 +582,7 @@
                       )}
                       {piece && (
                         <div
-                          className={`piece ${piece.type.startsWith("w") ? "white-piece" : "black-piece"} ${isSelected ? "selected" : ""} ${pieceHasSupka(piece) ? "has-supka" : ""}`}
+                          className={`piece ${piece.type.startsWith("w") ? "white-piece" : "black-piece"} ${isSelected ? "selected" : ""} ${showMoveHints && pieceHasSupka(piece) ? "has-supka" : ""}`}
                           onClick={(e) => {
                             e.stopPropagation();
                             handleCellClick(rIdx, cIdx);
@@ -534,7 +591,7 @@
                           tabIndex={0}
                         >
                           {isKing && <span className="crown-icon">👑</span>}
-                          {pieceHasSupka(piece) && <span className="supka-marker" title="Majburiy yeyish" />}
+                          {showMoveHints && pieceHasSupka(piece) && <span className="supka-marker" title="Majburiy yeyish" />}
                         </div>
                       )}
                     </div>

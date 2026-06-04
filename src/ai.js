@@ -48,5 +48,10 @@ export function pickBotMove(pieces, difficulty) {
 
 export function formatBotMove(aiMove) {
   if (!aiMove) return null;
-  return { fromPiece: aiMove.from, to: aiMove.to, capturedId: aiMove.capturedIds || aiMove.capturedId };
+  return { 
+    fromPiece: aiMove.from, 
+    to: aiMove.to, 
+    capturedIds: aiMove.capturedIds || (aiMove.capturedId ? [aiMove.capturedId] : []),
+    path: aiMove.path 
+  };
 }
