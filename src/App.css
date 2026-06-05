@@ -1,7 +1,7 @@
 body {
   margin: 0;
-  background-color: #0f172a;
-  color: #f8fafc;
+  background: radial-gradient(circle at center, #1e293b 0%, #020617 100%);
+  color: #e2e8f0; /* Umumiy matn rangini biroz yumshoqroq qilamiz */
   font-family: 'Segoe UI', Roboto, sans-serif;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
@@ -18,6 +18,7 @@ body {
   padding: 16px;
   padding-bottom: max(16px, env(safe-area-inset-bottom));
   box-sizing: border-box;
+  background: radial-gradient(circle at center, #1e293b 0%, #020617 100%); /* Body bilan bir xil fon */
 }
 
 .casual-top-bar {
@@ -33,7 +34,7 @@ body {
   font-size: clamp(2rem, 8vw, 2.8rem);
   font-weight: 900;
   color: #fff8e7;
-  text-shadow: 2px 3px 0 #8b5a2b;
+  text-shadow: 4px 5px 0px #5d4037, 0 12px 25px rgba(0,0,0,0.6); /* Soya effektini kuchaytiramiz */
   margin: 0;
   letter-spacing: 4px;
 }
@@ -51,22 +52,22 @@ body {
   background-color: #ffebd2;
   width: 100%;
   max-width: 380px;
-  border-radius: 35px;
+  border-radius: 25px; /* Biroz yumaloqlikni kamaytiramiz */
   padding: 40px 20px 25px;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
   align-items: center;
   position: relative;
-  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.7); /* Soya effektini kuchaytiramiz */
   margin-top: 40px;
 }
 
 .casual-avatar-circle {
-  width: 90px;
-  height: 90px;
+  width: 96px;
+  height: 96px;
   background-color: #2c1810;
-  border: 6px solid white;
+  border: 5px solid #fff; /* Chegarani qalinlashtiramiz */
   border-radius: 50%;
   position: absolute;
   top: -45px;
@@ -75,6 +76,15 @@ body {
   justify-content: center;
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
 }
+
+/* Ant Design yozuvlarini och rangli kartada ko'rinadigan qilish */
+.casual-card .ant-typography,
+.difficulty-text.ant-typography,
+.difficulty-desc {
+  color: #2c1810 !important; /* To'q rang */
+}
+
+.difficulty-text { margin-top: 10px; }
 
 .casual-avatar-emoji {
   font-size: 3rem;
@@ -114,6 +124,11 @@ body {
   width: 100%;
   margin-bottom: 28px;
 }
+
+/* Ant design slider styles */
+.ant-slider-rail { background-color: #cbd5e1 !important; }
+.ant-slider-track { background-color: #1890ff !important; }
+.ant-slider-handle { border-color: #1890ff !important; }
 
 .casual-slider {
   -webkit-appearance: none;
@@ -167,7 +182,7 @@ body {
   cursor: pointer;
   margin-bottom: 12px;
   box-shadow: 0 6px 0 rgba(0, 0, 0, 0.18);
-  transition: transform 0.1s;
+  transition: transform 0.1s ease-out, box-shadow 0.1s ease-out; /* Silliqroq animatsiya */
 }
 
 .casual-main-btn:active {
@@ -175,14 +190,32 @@ body {
   box-shadow: 0 2px 0 rgba(0, 0, 0, 0.18);
 }
 
-.bot-play-btn { background-color: #2ec84b; }
-.friend-play-btn { background-color: #9b59b6; }
+/* Bot tugmasi: Yashil */
+.bot-play-btn.ant-btn { background-color: #16a34a !important; border: none; }
+.bot-play-btn.ant-btn:hover { background-color: #15803d !important; }
+
+/* Do'st tugmasi: Binafsha */
+.friend-play-btn.ant-btn { background-color: #8b5cf6 !important; border: none; }
+.friend-play-btn.ant-btn:hover { background-color: #7c3aed !important; }
 
 .btn-large-icon { font-size: 2.4rem; }
 .btn-large-lbl {
   text-align: left;
   display: flex;
   flex-direction: column;
+}
+
+.btn-large-lbl span,
+.btn-large-lbl .btn-title.ant-typography {
+  color: white !important;
+  margin: 0 !important;
+  transition: color 0.2s;
+}
+
+/* Cursor borganda matn oltin rangga yaqinroq bo'ladi (premium ko'rinish) */
+.casual-main-btn:hover .btn-large-lbl span,
+.casual-main-btn:hover .btn-large-lbl .btn-title.ant-typography {
+  color: #fde68a !important; 
 }
 .btn-large-lbl span {
   font-size: 0.8rem;
@@ -281,7 +314,7 @@ body {
   opacity: 1;
 }
 
-.tutorial-banner p {
+.tutorial-banner .ant-typography { /* Ant Design Text komponentiga moslashamiz */
   margin: 0;
   font-size: clamp(0.8rem, 3.2vw, 0.95rem);
   line-height: 1.4;
@@ -309,7 +342,7 @@ body {
   font-size: 0.9rem;
   text-align: center;
   line-height: 1.35;
-  transition: opacity 0.2s;
+  transition: opacity 0.2s, visibility 0.2s; /* Yaxshiroq o'tish */
 }
 
 .tutorial-footer.is-hidden {
@@ -335,8 +368,9 @@ body {
 
 .global-timer,
 .turn-timer {
-  background-color: #1e293b;
-  padding: 8px 16px;
+  background: rgba(15, 23, 42, 0.5); /* Biroz shaffofroq */
+  backdrop-filter: blur(10px); /* Ko'proq xiralashtiramiz */
+  padding: 10px 20px;
   border-radius: 10px;
   font-weight: bold;
   font-size: 0.9rem;
@@ -364,7 +398,9 @@ body {
   gap: 6px;
   font-size: clamp(0.9rem, 3.5vw, 1.05rem);
   margin-bottom: 12px;
-  background-color: #1e293b;
+  background: rgba(15, 23, 42, 0.5); /* Biroz shaffofroq */
+  backdrop-filter: blur(10px); /* Ko'proq xiralashtiramiz */
+  border: 1px solid rgba(255, 255, 255, 0.1);
   padding: 8px 14px;
   border-radius: 20px;
   min-height: 44px;
@@ -390,19 +426,20 @@ body {
   justify-content: center;
 }
 
-.user-label { color: #10b981; font-weight: bold; }
-.bot-label { color: #f43f5e; font-weight: bold; }
-.bot-thinking-label { color: #fb923c; font-weight: bold; }
+.user-label { color: #10b981; font-weight: bold; } /* Ant Design Tag ranglari bilan mos */
+.bot-label { color: #f43f5e; font-weight: bold; } /* Ant Design Tag ranglari bilan mos */
+.bot-thinking-label { color: #fb923c; font-weight: bold; } /* Ant Design Tag ranglari bilan mos */
 
 /* Doska: oq va qora kataklar aniq farq qiladi */
 .board-container {
   position: relative;
   width: min(92vw, 92vmin, 480px);
   aspect-ratio: 1;
-  border: clamp(6px, 1.5vw, 12px) solid #5d4037;
-  border-radius: 12px;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
-  background-color: #d4a574;
+  border: clamp(12px, 3vw, 24px) solid #3e2723; /* Chegarani qalinlashtiramiz */
+  border-radius: 6px; /* Biroz yumaloqlikni oshiramiz */
+  box-shadow: 0 35px 70px -15px rgba(0, 0, 0, 0.95), inset 0 0 50px rgba(0,0,0,0.6); /* Soya effektini kuchaytiramiz */
+  background-color: #1a1a1a; /* Asosiy fonni to'qroq qilamiz */
+  padding: 2px;
   overflow: hidden;
 }
 
@@ -424,13 +461,15 @@ body {
 
 /* Oq (bo'sh) kataklar — yurilmaydi */
 .light-cell {
-  background-color: #f5e6c8;
+  background-image: linear-gradient(135deg, #f5e6c8 0%, #e0c29a 100%); /* Ranglarni biroz ochroq qilamiz */
+  box-shadow: inset 0 0 18px rgba(0,0,0,0.15); /* Ichki soyani kuchaytiramiz */
   cursor: default;
 }
 
 /* Qora (o'ynaladigan) kataklar */
 .dark-cell {
-  background-color: #6b4423;
+  background-image: linear-gradient(135deg, #5d4037 0%, #2c1810 100%); /* Ranglarni to'qroq qilamiz */
+  box-shadow: inset 0 0 30px rgba(0,0,0,0.5); /* Ichki soyani kuchaytiramiz */
   cursor: pointer;
 }
 
@@ -447,7 +486,7 @@ body {
 }
 
 .hint-move {
-  background-color: rgba(46, 200, 75, 0.85);
+  background-color: rgba(46, 200, 75, 0.9); /* Shaffoflikni kamaytiramiz */
   box-shadow: 0 0 8px #2ec84b;
 }
 
@@ -463,28 +502,44 @@ body {
 }
 
 .piece {
-  position: relative;
-  width: 82%;
-  height: 82%;
-  max-width: 100%;
-  max-height: 100%;
-  aspect-ratio: 1;
-  border-radius: 50%;
-  cursor: pointer;
-  box-shadow: inset 0 -4px 8px rgba(0, 0, 0, 0.4), 0 4px 8px rgba(0, 0, 0, 0.35);
+  position: absolute;
+  width: 12.5%; /* 1/8 taxta qismi */
+  height: 12.5%;
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 2;
-  flex-shrink: 0;
+  z-index: 10;
+  /* Toshlar silliq yurishi uchun eng muhim joy */
+  transition: top 0.6s cubic-bezier(0.45, 0.05, 0.55, 0.95), 
+              left 0.6s cubic-bezier(0.45, 0.05, 0.55, 0.95);
+  cursor: pointer;
   touch-action: manipulation;
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); /* Toshlar silliq harakatlanishi uchun */
+}
+
+.piece-content {
+  position: relative;
+  width: 84%;
+  height: 84%;
+  border-radius: 50%;
+  box-shadow: 
+    0 10px 20px rgba(0, 0, 0, 0.7), /* Tashqi soyani kuchaytiramiz */
+    inset 0 -10px 15px rgba(0, 0, 0, 0.5), /* Pastki ichki soyani kuchaytiramiz */
+    inset 0 8px 12px rgba(255, 255, 255, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.piece.selected .piece-content {
+  outline: 3px solid #38bdf8;
+  box-shadow: 0 0 20px #38bdf8, 0 10px 20px rgba(0,0,0,0.7);
+  transform: scale(1.05);
 }
 
 /* Majburiy yeyish — supka (oq va qora toshlarda) */
 .piece.has-supka {
   outline: 3px solid #e74c3c;
-  box-shadow: 0 0 14px rgba(231, 76, 60, 0.75);
+  box-shadow: 0 0 16px rgba(231, 76, 60, 0.85); /* Soya effektini kuchaytiramiz */
 }
 
 .supka-marker {
@@ -497,7 +552,7 @@ body {
   min-height: 10px;
   background: #e74c3c;
   border: 2px solid #fff;
-  border-radius: 50%;
+  border-radius: 50%; /* Doira shakli */
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
   pointer-events: none;
   z-index: 3;
@@ -508,27 +563,27 @@ body {
 }
 
 .black-piece.has-supka .supka-marker {
-  border-color: #f8fafc;
+  border-color: #e2e8f0; /* Oq rangga yaqinroq */
 }
 
 .white-piece {
-  background: radial-gradient(circle at 30% 30%, #ffffff 0%, #cbd5e1 100%);
-  border: 2px solid #94a3b8;
+  background: radial-gradient(circle at 30% 30%, #ffffff 0%, #f8fafc 45%, #cbd5e1 100%); /* Yorug'likni kuchaytiramiz */
+  border: 1px solid rgba(255,255,255,0.9); /* Chegarani aniqroq qilamiz */
 }
 
 .black-piece {
-  background: radial-gradient(circle at 30% 30%, #64748b 0%, #0f172a 100%);
-  border: 2px solid #1e293b;
+  background: radial-gradient(circle at 30% 30%, #475569 0%, #1e293b 45%, #0f172a 100%); /* Ranglarni to'qroq qilamiz */
+  border: 1px solid rgba(255,255,255,0.15); /* Chegarani aniqroq qilamiz */
 }
 
 .piece.selected {
   outline: 3px solid #38bdf8;
-  z-index: 5;
+  z-index: 100; /* Yurayotgan tosh har doim eng tepada bo'lsin */
   box-shadow: 0 0 20px #38bdf8;
 }
 
 .crown-icon {
-  font-size: clamp(0.9rem, 4vw, 1.4rem);
+  font-size: clamp(1rem, 4.5vw, 1.6rem); /* Tojni kattaroq qilamiz */
 }
 
 .winner-overlay {
@@ -538,7 +593,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 10;
+  z-index: 1000; /* Boshqa elementlardan ustun bo'lishi uchun */
   backdrop-filter: blur(5px);
   padding: 16px;
   box-sizing: border-box;
@@ -547,7 +602,7 @@ body {
 .winner-modal {
   background-color: #1e293b;
   padding: 28px 24px;
-  border-radius: 24px;
+  border-radius: 18px; /* Biroz yumaloqlikni kamaytiramiz */
   border: 2px solid #38bdf8;
   text-align: center;
   max-width: 400px;
@@ -556,7 +611,7 @@ body {
 
 .winner-modal h2 {
   color: #38bdf8;
-  font-size: clamp(1.4rem, 5vw, 2rem);
+  font-size: clamp(1.6rem, 5.5vw, 2.2rem); /* Sarlavhani kattaroq qilamiz */
   margin-top: 0;
 }
 
@@ -572,7 +627,7 @@ body {
   color: white;
   padding: 12px 28px;
   font-weight: bold;
-  border-radius: 12px;
+  border-radius: 10px; /* Biroz yumaloqlikni kamaytiramiz */
   cursor: pointer;
   font-size: 1rem;
 }

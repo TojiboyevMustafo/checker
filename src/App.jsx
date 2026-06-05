@@ -1,7 +1,29 @@
-  import React, { useState, useEffect, useMemo } from "react";
-  import { pickBotMove, formatBotMove } from "./ai";
-  import { buildMatrix, getCaptureSequences } from "./moveGenerator";
-  import "./App.css";
+import React, { useState, useEffect, useMemo } from "react";
+import { pickBotMove, formatBotMove } from "./ai";
+import { buildMatrix, getCaptureSequences } from "./moveGenerator";
+import { 
+  Button, 
+  Slider, 
+  Typography, 
+  Card, 
+  Space, 
+  Tag, 
+  Modal, 
+  ConfigProvider, 
+  theme 
+} from "antd";
+import { 
+  ArrowLeftOutlined, 
+  RobotOutlined, 
+  TeamOutlined, 
+  FireOutlined, 
+  SafetyOutlined, 
+  BulbOutlined, 
+  TrophyOutlined 
+} from "@ant-design/icons";
+import "./App.css";
+
+const { Title, Text, Paragraph } = Typography;
 
   const initialPieces = [
     { id: "b1", type: "b", r: 0, c: 1 }, { id: "b2", type: "b", r: 0, c: 3 },
@@ -27,11 +49,13 @@
     { label: "PROFESSIONAL", avatar: "🏆", desc: "8+ qadam — eng qiyin" },
   ];
 
-  const TUTORIAL_TIPS = [
+  const getTutorialTips = (isSupka) => [
     "1-qadam: Oq toshingizni bosing (pastdagi oq doiralar).",
     "2-qadam: Yashil nuqtali qora katakka bosing — shu yerga yurasiz.",
     "Eslatma: Faqat qora (to‘q) kataklarda yuriladi.",
-    "Qizil supka = majburiy yeyish! Faqat shu toshni yuring.",
+    isSupka 
+      ? "Qizil supka = majburiy yeyish! Faqat shu toshni yuring." 
+      : "Toshni yeyish ixtiyoriy, lekin raqib toshini yutsangiz foydali!",
     "Agar qizil nuqta bo‘lsa — raqib toshini yeyishingiz mumkin!",
     "Maqsad: raqibning barcha toshlarini yeb, g‘alaba qozonish.",
   ];
@@ -48,8 +72,8 @@
     const [moveCount, setMoveCount] = useState(0);
     const [tutorialTipIndex, setTutorialTipIndex] = useState(0);
 
-    const [globalTime, setGlobalTime] = useState(180);
-    const [turnTime, setTurnTime] = useState(15);
+    const [globalTime, setGlobalTime] = useState(600);
+    const [turnTime, setTurnTime] = useState(45);
     const [winner, setWinner] = useState(null);
 
     const isTutorialMode = botDifficulty === 0 && gameMode === "bot";
@@ -140,11 +164,9 @@
     const selectedHints = useMemo(() => {
       if (!selectedId || winner) return { validMoves: [], captures: [] };
       const piece = pieces.find((p) => p.id === selectedId);
-      const moves = getMovesForPiece(piece, isWhiteTurn);
-      if (!isSupkaRule && mandatoryCaptures.length > 0) {
-        return { validMoves: [], captures: moves.captures };
-      }
-      return moves;
+      if (!piece) return { validMoves: [], captures: [] };
+      
+      return getMovesForPiece(piece, isWhiteTurn, boardMatrix);
     }, [selectedId, isWhiteTurn, pieces, winner, mandatoryCaptures]);
 
     const showMoveHints =
@@ -157,7 +179,7 @@
           if (prev <= 1) {
             setIsWhiteTurn((t) => !t);
             setSelectedId(null);
-            return 15;
+            return 45;
           }
           return prev - 1;
         });
@@ -175,7 +197,7 @@
 
     useEffect(() => {
       if (!gameMode) return;
-      setTurnTime(15);
+      setTurnTime(45);
       checkGameOver();
     }, [isWhiteTurn, gameMode, pieces]);
 
@@ -188,13 +210,14 @@
         }, delay);
         return () => clearTimeout(botDelay);
       }
-    }, [isWhiteTurn, winner, gameMode]);
+    }, [isWhiteTurn, winner, gameMode, botDifficulty]);
 
     useEffect(() => {
-      if (isTutorialMode && isWhiteTurn && moveCount < TUTORIAL_TIPS.length) {
-        setTutorialTipIndex(Math.min(moveCount, TUTORIAL_TIPS.length - 1));
+      const tips = getTutorialTips(isSupkaRule);
+      if (isTutorialMode && isWhiteTurn && moveCount < tips.length) {
+        setTutorialTipIndex(Math.min(moveCount, tips.length - 1));
       }
-    }, [moveCount, isWhiteTurn, isTutorialMode]);
+    }, [moveCount, isWhiteTurn, isTutorialMode, isSupkaRule]);
 
     const formatTime = (seconds) => {
       const mins = Math.floor(seconds / 60);
@@ -236,20 +259,17 @@
       if (!isWhiteTurn && !hasBlackMoves) setWinner("Oqlar yutdi! Yo'llar yopildi. 🎉");
     };
 
-    const applyMove = (pieceId, row, col, capturedId) => {
+    const applyMove = async (pieceId, row, col, capturedId) => {
       let nextIsWhiteTurn = !isWhiteTurn;
       let piecesToBurnIds = [];
 
-      // Supka qoidasi: Agar yeyish imkoniyati bor bo'lsa-yu, oddiy yurish qilinsa
       if (isSupkaRule && !capturedId && mandatoryCaptures.length > 0) {
-        // Faqat bitta toshni yo'qotish: agar yurgan tosh yeyishi kerak bo'lsa o'zi, aks holda majburiylardan biri
         const burnId = mustCapturePieceIds.has(pieceId) ? pieceId : Array.from(mustCapturePieceIds)[0];
         piecesToBurnIds = [burnId];
       }
 
-      let newPieces = pieces
-        .filter((p) => p.id !== capturedId && !piecesToBurnIds.includes(p.id))
-        .map((p) => {
+      // 1. Faqat pozitsiyani yangilaymiz, urilgan tosh hali o'chmaydi
+      const movedPieces = pieces.map((p) => {
           if (p.id === pieceId) {
             let nextType = p.type;
             if (p.type === "w" && row === 0) nextType = "wk";
@@ -259,14 +279,24 @@
           return p;
         });
 
-      // Zanjirli yeyishni tekshirish (Multi-jump / Boomerang logic)
+      setPieces(movedPieces);
+
+      // Tosh ustiga kelishi uchun animatsiya yarmini kutamiz (CSS transition 0.6s)
+      if (capturedId || piecesToBurnIds.length > 0) {
+        await new Promise(r => setTimeout(r, 350));
+      }
+
+      // 2. Endi urilgan toshni va kuyganlarni o'chiramiz
+      const finalPieces = movedPieces.filter(
+        (p) => p.id !== capturedId && !piecesToBurnIds.includes(p.id)
+      );
+
       if (capturedId) {
-        const movedPiece = newPieces.find(p => p.id === pieceId);
-        // getMovesForPiece bu yerda callback orqali yangi matrix bilan chaqiriladi
-        const { captures } = getMovesForPiece(movedPiece, isWhiteTurn, buildMatrix(newPieces));
+        const movedPiece = finalPieces.find(p => p.id === pieceId);
+        const { captures } = getMovesForPiece(movedPiece, isWhiteTurn, buildMatrix(finalPieces));
         if (captures.length > 0) {
           nextIsWhiteTurn = isWhiteTurn; // Navbat almashmaydi
-          setSelectedId(pieceId); // Toshni ghosted effect uchun aktiv qoldiramiz
+          setSelectedId(pieceId); 
         } else {
           setSelectedId(null);
         }
@@ -274,12 +304,12 @@
         setSelectedId(null);
       }
 
-      setPieces(newPieces);
+      setPieces(finalPieces);
       setIsWhiteTurn(nextIsWhiteTurn);
       if (isWhiteTurn) setMoveCount((m) => m + 1);
     };
 
-  const handleCellClick = (row, col) => {
+  const handleCellClick = async (row, col) => {
     if (winner) return;
     if (gameMode === "bot" && !isWhiteTurn) return;
 
@@ -292,11 +322,9 @@
       const isCorrectTurn = isWhiteTurn
         ? currentPiece.type.startsWith("w")
         : currentPiece.type.startsWith("b");
+      
       if (isCorrectTurn) {
-          if (!isSupkaRule && mandatoryCaptures.length > 0) {
-          const { captures } = getMovesForPiece(currentPiece, isWhiteTurn);
-          if (captures.length === 0) return;
-        }
+        // Supka bo'lsa ham, bo'lmasa ham xohlagan toshni tanlashga ruxsat beramiz
         setSelectedId(currentPiece.id);
         return;
       }
@@ -304,19 +332,20 @@
 
     if (selectedId && !currentPiece) {
       const selectedPiece = pieces.find((p) => p.id === selectedId);
-      const { validMoves, captures } = getMovesForPiece(selectedPiece, isWhiteTurn);
-      const hitCapture = captures.find((c) => c.to.r === row && c.to.c === col);
+      const moves = getMovesForPiece(selectedPiece, isWhiteTurn);
+      
+      const hitCapture = moves.captures.find((c) => c.to.r === row && c.to.c === col);
+      const isTryingNormal = moves.validMoves.find((m) => m.r === row && m.c === col);
 
-      if (hitCapture) {
-        applyMove(selectedId, row, col, hitCapture.target.id);
+      // Agar Supka bo'lsa yeyish majburiy. 
+      // Supkasiz bo'lsa: agar ham yeyish, ham yurish mumkin bo'lsa - bosilgan katakka qarab ishlaydi.
+      if (hitCapture && (isSupkaRule || !isTryingNormal)) {
+        await applyMove(selectedId, row, col, hitCapture.target.id);
         return;
       }
 
-        if (!isSupkaRule && mandatoryCaptures.length > 0) return;
-
-      const isTryingNormal = validMoves.some((m) => m.r === row && m.c === col);
       if (isTryingNormal) {
-        applyMove(selectedId, row, col, null);
+        await applyMove(selectedId, row, col, null);
       }
     }
   };
@@ -325,6 +354,9 @@
       // Botning yurish yo'li (intermediate squares) va uriladigan toshlar
       const steps = path && path.length > 0 ? path : [{ r: to.r, c: to.c }];
       const kills = Array.isArray(capturedIds) ? capturedIds : (capturedIds ? [capturedIds] : []);
+
+      // Bot yurayotgan toshini "tanlangan" qilib belgilaymiz (z-index ko'tarilishi uchun)
+      setSelectedId(fromPiece.id);
 
       for (let i = 0; i < steps.length; i++) {
         const step = steps[i];
@@ -335,14 +367,13 @@
           p.id === fromPiece.id ? { ...p, r: step.r, c: step.c } : p
         ));
 
-        // Toshning siljishini kutamiz (CSS transition 0.4s bo'lgani uchun 0.5s kutamiz)
-        await new Promise(r => setTimeout(r, 500));
-
         if (killId) {
-          // 2. Shu qadamdagi raqib toshini olib tashlaymiz
+          // Tosh ustiga kelganda (350ms) raqib toshini o'chiramiz
+          await new Promise(r => setTimeout(r, 350));
           setPieces(prev => prev.filter(p => p.id !== killId));
-          // Tosh o'chganidan keyin kichik pauza (ko'zga tashlanishi uchun)
-          await new Promise(r => setTimeout(r, 300));
+          await new Promise(r => setTimeout(r, 550)); // Qolgan animatsiya va kichik pauza
+        } else {
+          await new Promise(r => setTimeout(r, 800));
         }
       }
 
@@ -355,6 +386,8 @@
       }));
 
       setIsWhiteTurn(true);
+      // Yurish tugagach tanlovni bekor qilamiz
+      setSelectedId(null);
   };
 
   const makeBotMove = async () => {
@@ -371,8 +404,8 @@
     setPieces(initialPieces);
     setIsWhiteTurn(true);
     setSelectedId(null);
-    setGlobalTime(180);
-    setTurnTime(15);
+    setGlobalTime(600);
+    setTurnTime(45);
     setWinner(null);
     setGameMode(null);
       setMenuSubMode(null);
@@ -386,8 +419,8 @@
     setPieces(initialPieces);
     setIsWhiteTurn(true);
     setSelectedId(null);
-    setGlobalTime(180);
-    setTurnTime(15);
+    setGlobalTime(600);
+    setTurnTime(45);
     setWinner(null);
     setMoveCount(0);
     setTutorialTipIndex(0);
@@ -404,211 +437,268 @@
   };
 
   const pieceHasSupka = (piece) => {
-    if (!piece || winner) return false;
+    // Supkasiz rejimda majburiyat markerini ko'rsatmaymiz
+    if (!piece || winner || !isSupkaRule) return false;
     const isWhitePiece = piece.type.startsWith("w");
     if (isWhiteTurn && isWhitePiece) return mustCapturePieceIds.has(piece.id);
     if (!isWhiteTurn && !isWhitePiece) return mustCapturePieceIds.has(piece.id);
     return false;
   };
 
+  const tutorialTips = getTutorialTips(isSupkaRule);
+
   if (!gameMode) {
     const diff = DIFFICULTIES[botDifficulty];
     return (
+      <ConfigProvider
+        theme={{
+          algorithm: theme.darkAlgorithm,
+          token: {
+            colorPrimary: '#d4a574',
+          },
+        }}
+      >
       <div className="casual-menu-bg">
         <div className="casual-top-bar">
-          <h1 className="casual-main-title">SHASHKA</h1>
+          <Title className="casual-main-title">SHASHKA</Title>
         </div>
 
-        <p className="casual-instruction">
+        <Text className="casual-instruction">
           {menuSubMode ? "O'yin qoidasini tanlang:" : "Raqibning barcha shashkalarini yeng va g'olib bo'ling!"}
-        </p>
+        </Text>
 
-        <div className="casual-card">
+        <Card className="casual-card" variant="borderless">
           {!menuSubMode ? (
             <>
               <div className="casual-avatar-circle">
                 <span className="casual-avatar-emoji">{diff.avatar}</span>
               </div>
 
-              <div className="casual-controls-row" style={{ justifyContent: "center" }}>
-                <h2 className={`difficulty-text diff-${botDifficulty}`}>{diff.label}</h2>
+              <div className="casual-controls-row">
+                <Title level={2} className={`difficulty-text diff-${botDifficulty}`}>{diff.label}</Title>
               </div>
-              <p className="difficulty-desc">{diff.desc}</p>
+              <Paragraph className="difficulty-desc">{diff.desc}</Paragraph>
 
               <div className="slider-wrapper">
-                <input
-                  type="range"
-                  min="0"
-                  max="4"
+                <Slider
+                  min={0}
+                  max={4}
                   value={botDifficulty}
-                  onChange={(e) => setBotDifficulty(Number(e.target.value))}
-                  className="casual-slider"
+                  onChange={setBotDifficulty}
+                  tooltip={{ open: false }}
                 />
                 <div className="slider-ticks slider-ticks-5">
                   {DIFFICULTIES.map((d, i) => (
-                    <span key={d.label} onClick={() => setBotDifficulty(i)} title={d.desc}>
+                    <span key={d.label} onClick={() => setBotDifficulty(i)}>
                       {i === 0 ? "Boshl." : d.label.split(" ")[0].slice(0, 4)}
                     </span>
                   ))}
                 </div>
               </div>
 
-              <button className="casual-main-btn bot-play-btn" onClick={() => setMenuSubMode("bot")}>
-                <span className="btn-large-icon">🤖</span>
-                <div className="btn-large-lbl">
-                  <span>YURISH REJIM</span>
-                  <h3>BOTGA</h3>
-                </div>
-              </button>
+              <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                <Button 
+                  type="primary" 
+                  block 
+                  className="casual-main-btn bot-play-btn"
+                  onClick={() => setMenuSubMode("bot")}
+                  icon={<RobotOutlined style={{ fontSize: '24px' }} />}
+                  style={{ height: 'auto', padding: '12px' }}
+                >
+                  <div className="btn-large-lbl">
+                    <span>YURISH REJIM</span>
+                    <Title level={4} className="btn-title">BOTGA QARSHI</Title>
+                  </div>
+                </Button>
 
-              <button className="casual-main-btn friend-play-btn" onClick={() => setMenuSubMode("friends")}>
-                <span className="btn-large-icon">👥</span>
-                <div className="btn-large-lbl">
-                  <span>YURISH REJIM</span>
-                  <h3>DO'STGA</h3>
-                </div>
-              </button>
+                <Button 
+                  block 
+                  className="casual-main-btn friend-play-btn"
+                  onClick={() => setMenuSubMode("friends")}
+                  icon={<TeamOutlined style={{ fontSize: '24px' }} />}
+                  style={{ height: 'auto', padding: '12px' }}
+                >
+                  <div className="btn-large-lbl">
+                    <span>YURISH REJIM</span>
+                    <Title level={4} className="btn-title">DO'STGA QARSHI</Title>
+                  </div>
+                </Button>
+              </Space>
             </>
           ) : (
-            <>
-              <button className="casual-main-btn bot-play-btn" onClick={() => startGame(menuSubMode, true)}>
-                <span className="btn-large-icon">🔥</span>
+            <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+              <Button 
+                type="primary" 
+                danger
+                block 
+                className="casual-main-btn bot-play-btn"
+                onClick={() => startGame(menuSubMode, true)}
+                icon={<FireOutlined style={{ fontSize: '24px' }} />}
+                style={{ height: 'auto', padding: '12px' }}
+              >
                 <div className="btn-large-lbl">
                   <span>QOIDA</span>
-                  <h3>SUPKA BILAN</h3>
+                  <Title level={4} className="btn-title">SUPKA BILAN</Title>
                 </div>
-              </button>
-              <button className="casual-main-btn friend-play-btn" style={{ backgroundColor: "#34495e" }} onClick={() => startGame(menuSubMode, false)}>
-                <span className="btn-large-icon">🛡️</span>
+              </Button>
+              <Button 
+                block 
+                className="casual-main-btn friend-play-btn"
+                onClick={() => startGame(menuSubMode, false)}
+                icon={<SafetyOutlined style={{ fontSize: '24px' }} />}
+                style={{ height: 'auto', padding: '12px', backgroundColor: "#34495e" }}
+              >
                 <div className="btn-large-lbl">
                   <span>QOIDA</span>
-                  <h3>SUPKASIZ</h3>
+                  <Title level={4} className="btn-title">SUPKASIZ</Title>
                 </div>
-              </button>
-              <button className="back-btn" style={{ marginTop: '10px', width: '100%' }} onClick={() => setMenuSubMode(null)}>
+              </Button>
+              <Button 
+                type="link" 
+                block 
+                icon={<ArrowLeftOutlined />} 
+                onClick={() => setMenuSubMode(null)}
+                style={{ color: '#5d4037' }}
+              >
                 Orqaga
-              </button>
-            </>
+              </Button>
+            </Space>
           )}
-        </div>
+        </Card>
       </div>
+      </ConfigProvider>
     );
   }
 
   return (
-    <div className="game-container">
-      <div className="header-box">
-        <button type="button" className="back-btn" onClick={restartGame}>
-          ⬅ Menyuga
-        </button>
-        <h2 className="header-title">
-          {gameMode === "bot"
-            ? `🤖 ${DIFFICULTIES[botDifficulty].label}`
-            : "👥 Do‘stlar"}
-        </h2>
-      </div>
-
-      <div className={`tutorial-slot ${isTutorialMode ? "has-tutorial" : ""}`} aria-hidden={!isTutorialMode || winner}>
-        <div
-          className={`tutorial-banner ${isTutorialMode && isWhiteTurn && !winner ? "is-visible" : "is-hidden"}`}
-        >
-          <span className="tutorial-icon">💡</span>
-          <p>{TUTORIAL_TIPS[tutorialTipIndex]}</p>
+    <ConfigProvider
+      theme={{
+        algorithm: theme.darkAlgorithm,
+        token: {
+          colorPrimary: '#d4a574', // O'yin tugmalari va elementlarini jigarrang qilish
+        },
+      }}
+    >
+      <div className="game-container">
+        <div className="header-box">
+          <Button icon={<ArrowLeftOutlined />} onClick={restartGame} type="text" style={{ color: 'white' }}>
+            Menyuga
+          </Button>
+          <Title level={4} style={{ margin: 0, color: 'white' }}>
+            {gameMode === "bot"
+              ? `🤖 ${DIFFICULTIES[botDifficulty].label}`
+              : "👥 Do‘stlar"}
+          </Title>
         </div>
-      </div>
 
-      {winner && (
-        <div className="winner-overlay">
-          <div className="winner-modal">
-            <h2>🎉 O‘yin Tugadi!</h2>
-            <p>{winner}</p>
-            <button type="button" className="restart-btn" onClick={restartGame}>
-              Qayta o&apos;ynash
-            </button>
+        <div className={`tutorial-slot ${isTutorialMode ? "has-tutorial" : ""}`} aria-hidden={!isTutorialMode || winner}>
+          <div
+            className={`tutorial-banner ${isTutorialMode && isWhiteTurn && !winner ? "is-visible" : "is-hidden"}`}
+          >
+            <BulbOutlined className="tutorial-icon" />
+            <Text style={{ color: 'white' }}>{tutorialTips[tutorialTipIndex]}</Text>
           </div>
         </div>
-      )}
 
-      <div className="timers-box">
-        <div className="global-timer">Umumiy: {formatTime(globalTime)}</div>
-        <div className="turn-timer">Yurish: {turnTime}s</div>
-      </div>
+        {winner && (
+          <Modal
+            title={<Title level={3} style={{ margin: 0 }}>🎉 O‘yin Tugadi!</Title>}
+            open={!!winner}
+            onOk={restartGame}
+            cancelButtonProps={{ style: { display: 'none' } }}
+            okText="Qayta o'ynash"
+            closable={false}
+            centered
+          >
+            <Text style={{ fontSize: '1.2rem' }}>{winner}</Text>
+          </Modal>
+        )}
 
-      <div className="turn-indicator">
-        <span className="turn-label">Navbat:</span>
-        <span className="turn-value user-label" style={{ display: isWhiteTurn ? "inline" : "none" }}>
-          Oq toshlar (siz)
-        </span>
-        <span
-          className="turn-value bot-thinking-label"
-          style={{ display: !isWhiteTurn && isBotThinking ? "inline" : "none" }}
-        >
-          Bot o‘ylamoqda...
-        </span>
-        <span
-          className="turn-value bot-label"
-          style={{ display: !isWhiteTurn && !isBotThinking ? "inline" : "none" }}
-        >
-          Qora toshlar
-        </span>
-      </div>
+        <div className="timers-box">
+          <div className="global-timer">Umumiy: {formatTime(globalTime)}</div>
+          <div className="turn-timer">Yurish: {turnTime}s</div>
+        </div>
 
-      <div className="board-anchor">
-      <div className="board-container">
-        <div className="board-grid">
-          {Array(8)
-            .fill(null)
-            .map((_, rIdx) =>
-              Array(8)
+        <div className="turn-indicator">
+          <span className="turn-label">Navbat:</span>
+          {isWhiteTurn ? (
+            <Tag color="success" className="turn-value" icon={<TrophyOutlined />}>Oq toshlar (siz)</Tag>
+          ) : (
+            isBotThinking ? (
+              <Tag color="warning" className="turn-value" icon={<RobotOutlined />}>Bot o‘ylamoqda...</Tag>
+            ) : (
+              <Tag color="error" className="turn-value" icon={<FireOutlined />}>Qora toshlar</Tag>
+            )
+          )}
+        </div>
+
+        <div className="board-anchor">
+          <div className="board-container">
+            <div className="board-grid">
+              {Array(8)
                 .fill(null)
-                .map((_, cIdx) => {
-                  const isDarkCell = (rIdx + cIdx) % 2 === 1;
-                  const hintType = isDarkCell ? isHintCell(rIdx, cIdx) : null;
-                  const piece = boardMatrix[rIdx][cIdx];
-                  const isSelected = piece?.id === selectedId;
-                  const isKing = piece && (piece.type === "wk" || piece.type === "bk");
+                .map((_, rIdx) =>
+                  Array(8)
+                    .fill(null)
+                    .map((_, cIdx) => {
+                      const isDarkCell = (rIdx + cIdx) % 2 === 1;
+                      const hintType = isDarkCell ? isHintCell(rIdx, cIdx) : null;
+                      const piece = boardMatrix[rIdx][cIdx];
+                      const isSelected = piece?.id === selectedId;
+                      const isKing = piece && (piece.type === "wk" || piece.type === "bk");
 
-                  return (
-                    <div
-                      key={`${rIdx}-${cIdx}`}
-                      className={`cell ${isDarkCell ? "dark-cell" : "light-cell"}`}
-                      onClick={() => handleCellClick(rIdx, cIdx)}
-                      role="button"
-                      tabIndex={isDarkCell ? 0 : -1}
-                      aria-label={isDarkCell ? `Katak ${rIdx + 1}, ${cIdx + 1}` : undefined}
-                    >
-                      {hintType && !piece && (
-                        <span className={`hint-dot ${hintType === "capture" ? "hint-capture" : "hint-move"}`} />
-                      )}
-                      {piece && (
+                      return (
                         <div
-                          className={`piece ${piece.type.startsWith("w") ? "white-piece" : "black-piece"} ${isSelected ? "selected" : ""} ${showMoveHints && pieceHasSupka(piece) ? "has-supka" : ""}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleCellClick(rIdx, cIdx);
-                          }}
-                          role="button"
-                          tabIndex={0}
+                          key={`${rIdx}-${cIdx}`}
+                          className={`cell ${isDarkCell ? "dark-cell" : "light-cell"}`}
+                          onClick={() => handleCellClick(rIdx, cIdx)}
                         >
-                          {isKing && <span className="crown-icon">👑</span>}
-                          {showMoveHints && pieceHasSupka(piece) && <span className="supka-marker" title="Majburiy yeyish" />}
+                          {hintType && !piece && (
+                            <span className={`hint-dot ${hintType === "capture" ? "hint-capture" : "hint-move"}`} />
+                          )}
                         </div>
-                      )}
+                      );
+                    })
+                )}
+
+              {/* Toshlar qatlami - absolute joylashuv uchun */}
+              {pieces.map((p) => {
+                const isSelected = p.id === selectedId;
+                const isKing = p.type === "wk" || p.type === "bk";
+                const hasSupka = pieceHasSupka(p);
+
+                return (
+                  <div
+                    key={p.id}
+                    className={`piece ${isSelected ? "selected" : ""} ${hasSupka ? "has-supka" : ""}`}
+                    style={{
+                      left: `${p.c * 12.5}%`,
+                      top: `${p.r * 12.5}%`,
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleCellClick(p.r, p.c);
+                    }}
+                  >
+                    <div className={`piece-content ${p.type.startsWith("w") ? "white-piece" : "black-piece"}`}>
+                      {isKing && <span className="crown-icon">👑</span>}
+                      {hasSupka && <span className="supka-marker" title="Majburiy yeyish" />}
                     </div>
-                  );
-                })
-            )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        <div className={`tutorial-footer-slot ${isTutorialMode ? "has-tutorial" : ""}`}>
+          <p
+            className={`tutorial-footer ${isTutorialMode && !selectedId && isWhiteTurn && !winner ? "is-visible" : "is-hidden"}`}
+          >
+            Oq toshlardan birini bosing — yurishni boshlang
+          </p>
         </div>
       </div>
-      </div>
-
-      <div className={`tutorial-footer-slot ${isTutorialMode ? "has-tutorial" : ""}`}>
-        <p
-          className={`tutorial-footer ${isTutorialMode && !selectedId && isWhiteTurn && !winner ? "is-visible" : "is-hidden"}`}
-        >
-          Oq toshlardan birini bosing — yurishni boshlang
-        </p>
-      </div>
-    </div>
+    </ConfigProvider>
   );
 }
