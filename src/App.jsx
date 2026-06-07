@@ -14,8 +14,6 @@ import {
 } from "antd";
 import { 
   ArrowLeftOutlined, 
-  RobotOutlined, 
-  TeamOutlined, 
   BulbOutlined, 
   TrophyOutlined,
   DashboardOutlined,
@@ -421,9 +419,11 @@ const { Title, Text, Paragraph } = Typography;
 
   if (!gameMode) {
     // Cursor qaysi tugma ustida tursa, o'shaning emojisini ko'rsatish
-    let activeEmoji = DIFFICULTIES[botDifficulty].avatar;
-    if (isFriendHovered) activeEmoji = "🤝";
-    else if (hoveredIdx !== null) activeEmoji = DIFFICULTIES[hoveredIdx].hoverAvatar;
+    let displayEmoji = DIFFICULTIES[botDifficulty].avatar;
+    if (isFriendHovered) displayEmoji = "🤝";
+    else if (hoveredIdx !== null) displayEmoji = DIFFICULTIES[hoveredIdx].hoverAvatar;
+
+    const isHovering = hoveredIdx !== null || isFriendHovered;
 
     return (
       <ConfigProvider
@@ -441,7 +441,7 @@ const { Title, Text, Paragraph } = Typography;
 
         <Card className="casual-card" variant="borderless">
           <div className="casual-avatar-circle">
-            <span className="casual-avatar-emoji">{activeEmoji}</span>
+            <span className={`casual-avatar-emoji ${isHovering ? 'emoji-pop' : ''}`}>{displayEmoji}</span>
           </div>
 
           <Space direction="vertical" size="middle" style={{ width: '100%', marginTop: '20px' }}>
@@ -457,11 +457,13 @@ const { Title, Text, Paragraph } = Typography;
                 }}
                 onMouseEnter={() => setHoveredIdx(idx)}
                 onMouseLeave={() => setHoveredIdx(null)}
-                icon={<RobotOutlined style={{ fontSize: '24px' }} />}
                 style={{ height: 'auto', padding: '12px' }}
               >
-                <div className="btn-large-lbl">
-                  <Title level={4} className="btn-title">{d.label}</Title>
+                <div className="btn-arcade-content">
+                  <span className="btn-emoji-static">{d.avatar}</span>
+                  <div className="btn-large-lbl">
+                    <Title level={4} className="btn-title">{d.label}</Title>
+                  </div>
                 </div>
               </Button>
             ))}
@@ -472,7 +474,7 @@ const { Title, Text, Paragraph } = Typography;
               onClick={() => startGame("friends", true)}
               onMouseEnter={() => setIsFriendHovered(true)}
               onMouseLeave={() => setIsFriendHovered(false)}
-              icon={<TeamOutlined style={{ fontSize: '24px' }} />}
+              icon={<span className="btn-emoji">👥</span>}
               style={{ height: 'auto', padding: '12px' }}
             >
               <div className="btn-large-lbl">

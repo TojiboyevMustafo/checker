@@ -4,15 +4,18 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     
-    <!-- PWA sozlamalari -->
     <link rel="manifest" href="/manifest.json" />
-    <meta name="theme-color" content="#020617" />
-    <link rel="icon" type="image/png" sizes="192x192" href="/src/assets/checker.png" />
-    <link rel="icon" type="image/png" sizes="512x512" href="/src/assets/checker.png" />
-    <link rel="apple-touch-icon" href="/src/assets/checker.png" />
+    <!-- Asosiy rasm (Fayl public/assets/checker.png manzilida bo'lishi shart) -->
+    <link rel="icon" type="image/png" href="/assets/checker.png" />
+    <link rel="apple-touch-icon" href="/assets/checker.png" />
+    
+    <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Checkers" />
+    
+    <meta name="theme-color" content="#020617" />
 
-    <title>Checker</title>
+    <title>Checkers</title>
   </head>
   <body>
     <div id="root"></div>
