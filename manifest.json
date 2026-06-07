@@ -3,13 +3,13 @@
   "name": "Checkers Online Game",
   "icons": [
     {
-      "src": "/public/checker-new.png",
+      "src": "/checker-new.png",
       "type": "image/png",
       "sizes": "192x192",
       "purpose": "any maskable"
     },
     {
-      "src": "/public/checker-new.png",
+      "src": "/checker-new.png",
       "type": "image/png",
       "sizes": "512x512",
       "purpose": "any maskable"
