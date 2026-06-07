@@ -1,6 +1,6 @@
 body {
   margin: 0;
-  background: radial-gradient(circle at center, #1e293b 0%, #020617 100%);
+  background: #020617;
   color: #e2e8f0; /* Umumiy matn rangini biroz yumshoqroq qilamiz */
   font-family: 'Segoe UI', Roboto, sans-serif;
   user-select: none;
@@ -33,8 +33,8 @@ body {
 .casual-main-title {
   font-size: clamp(2rem, 8vw, 2.8rem);
   font-weight: 900;
-  color: #fff8e7;
-  text-shadow: 4px 5px 0px #5d4037, 0 12px 25px rgba(0,0,0,0.6); /* Soya effektini kuchaytiramiz */
+  color: #ffffff; /* Toza oq rang */
+  text-shadow: none; /* Jigarrang va boshqa soyalar olib tashlandi */
   margin: 0;
   letter-spacing: 4px;
 }
@@ -63,6 +63,61 @@ body {
   margin-top: 40px;
 }
 
+.scoreboard-wrapper{
+  display: flex;
+  flex-direction: row; /* Gorizontal qator */
+  align-items: center;
+  justify-content: space-around;
+  width: 100%;
+  max-width: min(92vw, 480px);
+  height: 100px; /* Biroz balandlik beramiz */
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(12px);
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  border-radius: 20px;
+  margin: 15px 0 25px 0;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+  padding: 8px 0;
+}
+
+.score-item {
+  display: flex;
+  flex-direction: column; /* Sarlavha tepada, son pastda */
+  align-items: center;
+  justify-content: center;
+}
+
+.score-label {
+  font-size: 1rem;
+  font-weight: 900;
+  letter-spacing: 1px;
+  margin-bottom: 2px;
+}
+
+.score-number {
+  font-size: 2.4rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.user-side .score-label, 
+.user-side .score-number {
+  color: #ff4d4f !important; /* Qizil rang */
+}
+
+.opp-side .score-label, 
+.opp-side .score-number {
+  color: #1890ff !important; /* Ko'k rang */
+}
+
+.vs-divider {
+  font-weight: 900;
+  color: #94a3b8;
+  font-size: 1.2rem;
+  font-style: italic;
+  opacity: 0.6;
+}
+
 .casual-avatar-circle {
   width: 96px;
   height: 96px;
@@ -88,6 +143,12 @@ body {
 
 .casual-avatar-emoji {
   font-size: 3rem;
+  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  display: inline-block;
+}
+
+.casual-avatar-circle:hover .casual-avatar-emoji {
+  transform: scale(1.2) rotate(5deg);
 }
 
 .casual-controls-row {
@@ -173,7 +234,7 @@ body {
 .casual-main-btn {
   width: 100%;
   padding: 14px 20px;
-  border-radius: 24px;
+  border-radius: 18px;
   border: none;
   color: white;
   display: flex;
@@ -181,28 +242,90 @@ body {
   gap: 16px;
   cursor: pointer;
   margin-bottom: 12px;
-  box-shadow: 0 6px 0 rgba(0, 0, 0, 0.18);
-  transition: transform 0.1s ease-out, box-shadow 0.1s ease-out; /* Silliqroq animatsiya */
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+  box-shadow: 0 6px 0 rgba(0, 0, 0, 0.3), 0 10px 25px rgba(0, 0, 0, 0.4);
+}
+
+/* Tugmaning ustidagi yaltiroq qatlam (Glossy effect) */
+.casual-main-btn::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 50%;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.25) 0%, rgba(255, 255, 255, 0) 100%);
+  pointer-events: none;
+}
+
+/* Nurli chiziq animatsiyasi (Shimmer) */
+.casual-main-btn::after {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -60%;
+  width: 20%;
+  height: 200%;
+  background: rgba(255, 255, 255, 0.2);
+  transform: rotate(30deg);
+  transition: none;
+}
+
+.casual-main-btn:hover::after {
+  left: 150%;
+  transition: all 0.6s ease-in-out;
 }
 
 .casual-main-btn:active {
-  transform: translateY(4px);
-  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.18);
+  transform: translateY(3px) scale(0.98);
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.2), 0 5px 10px rgba(0, 0, 0, 0.2);
 }
 
-/* Bot tugmasi: Yashil */
-.bot-play-btn.ant-btn { background-color: #16a34a !important; border: none; }
-.bot-play-btn.ant-btn:hover { background-color: #15803d !important; }
+/* Individual Button Colors */
+.diff-btn-0.ant-btn { 
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%) !important; 
+}
+.diff-btn-0.ant-btn:hover { 
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.6), 0 6px 0 rgba(0, 0, 0, 0.2);
+}
 
-/* Do'st tugmasi: Binafsha */
-.friend-play-btn.ant-btn { background-color: #8b5cf6 !important; border: none; }
-.friend-play-btn.ant-btn:hover { background-color: #7c3aed !important; }
+.diff-btn-1.ant-btn { 
+  background: linear-gradient(135deg, #10b981 0%, #047857 100%) !important; 
+}
+.diff-btn-1.ant-btn:hover { 
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.6), 0 6px 0 rgba(0, 0, 0, 0.2);
+}
+
+.diff-btn-2.ant-btn { 
+  background: linear-gradient(135deg, #f59e0b 0%, #b45309 100%) !important; 
+}
+.diff-btn-2.ant-btn:hover { 
+  box-shadow: 0 0 20px rgba(245, 158, 11, 0.6), 0 6px 0 rgba(0, 0, 0, 0.2);
+}
+
+.diff-btn-3.ant-btn { 
+  background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%) !important; 
+}
+.diff-btn-3.ant-btn:hover { 
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.6), 0 6px 0 rgba(0, 0, 0, 0.2);
+}
+
+.friend-play-btn.ant-btn { 
+  background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%) !important; 
+}
+.friend-play-btn.ant-btn:hover { 
+  box-shadow: 0 0 20px rgba(139, 92, 246, 0.6), 0 6px 0 rgba(0, 0, 0, 0.2);
+}
 
 .btn-large-icon { font-size: 2.4rem; }
 .btn-large-lbl {
-  text-align: left;
+  text-align: center; /* Matnlarni markazlashtirish */
+  width: 100%;
   display: flex;
   flex-direction: column;
+  justify-content: center;
 }
 
 .btn-large-lbl span,
@@ -244,6 +367,15 @@ body {
   max-width: 100vw;
   overflow-x: hidden;
   overflow-y: auto;
+  transition: background 0.5s ease;
+}
+
+.game-container.turn-user {
+  background: radial-gradient(circle at center, #7f1d1d 0%, #020617 100%); /* Yorqinroq och qizil fon */
+}
+
+.game-container.turn-opponent {
+  background: radial-gradient(circle at center, #1e3a8a 0%, #020617 100%); /* Yorqinroq ko'k fon */
 }
 
 .header-box {
@@ -253,7 +385,7 @@ body {
   width: 100%;
   max-width: min(92vw, 480px);
   margin-bottom: 12px;
-  gap: 8px;
+  gap: 16px;
 }
 
 .header-title {
@@ -510,8 +642,8 @@ body {
   justify-content: center;
   z-index: 10;
   /* Toshlar silliq yurishi uchun eng muhim joy */
-  transition: top 0.6s cubic-bezier(0.45, 0.05, 0.55, 0.95), 
-              left 0.6s cubic-bezier(0.45, 0.05, 0.55, 0.95);
+  transition: top 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
+              left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
   touch-action: manipulation;
 }

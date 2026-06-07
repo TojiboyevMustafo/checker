@@ -13,32 +13,26 @@ export function pickBotMove(pieces, difficulty) {
 
   if (legalMoves.length === 0) return null;
 
-  // Daraja 0: Boshlanuvchi - Tasodifiy
+  // Daraja 0: Oson - Depth 1 (Odamlar oson yutishi uchun)
   if (difficulty === 0) {
-    return legalMoves[Math.floor(Math.random() * legalMoves.length)];
+    const result = minimax(pieces, 1, -Infinity, Infinity, true, 0);
+    return result.move || legalMoves[0];
   }
 
-  // Daraja 1: Oson - Depth 2
+  // Daraja 1: O'rta - Depth 4
   if (difficulty === 1) {
-    const result = minimax(pieces, 2, -Infinity, Infinity, true, 1);
+    const result = minimax(pieces, 4, -Infinity, Infinity, true, 1);
     return result.move || legalMoves[0];
   }
 
-  // Daraja 2: O'rta - Depth 4
+  // Daraja 2: Qiyin - Depth 6
   if (difficulty === 2) {
-    const result = minimax(pieces, 4, -Infinity, Infinity, true, 2);
+    const result = minimax(pieces, 6, -Infinity, Infinity, true, 2);
     return result.move || legalMoves[0];
   }
 
-  // Daraja 3: Qiyin - Depth 6
+  // Daraja 3: Professional - Depth 8
   if (difficulty === 3) {
-    const result = minimax(pieces, 6, -Infinity, Infinity, true, 3);
-    return result.move || legalMoves[0];
-  }
-
-  // Daraja 4: Professional - Depth 8 (Brauzer uchun optimal maksimal chuqurlik)
-  // Izoh: Depth 10+ qilish uchun Web Worker ishlatish tavsiya etiladi.
-  if (difficulty === 4) {
     const result = minimax(pieces, 8, -Infinity, Infinity, true, 4);
     return result.move || legalMoves[0];
   }

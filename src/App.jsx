@@ -3,23 +3,23 @@ import { pickBotMove, formatBotMove } from "./ai";
 import { buildMatrix, getCaptureSequences } from "./moveGenerator";
 import { 
   Button, 
-  Slider, 
   Typography, 
   Card, 
   Space, 
   Tag, 
   Modal, 
   ConfigProvider, 
-  theme 
+  theme,
+  Badge
 } from "antd";
 import { 
   ArrowLeftOutlined, 
   RobotOutlined, 
   TeamOutlined, 
-  FireOutlined, 
-  SafetyOutlined, 
   BulbOutlined, 
-  TrophyOutlined 
+  TrophyOutlined,
+  DashboardOutlined,
+  FireOutlined
 } from "@ant-design/icons";
 import "./App.css";
 
@@ -42,42 +42,30 @@ const { Title, Text, Paragraph } = Typography;
   ];
 
   const DIFFICULTIES = [
-    { label: "BOSHLANUVCHI", avatar: "📚", desc: "Qayerga yurishni o‘rgatadi" },
-    { label: "OSON", avatar: "🙂", desc: "Oddiy bot" },
-    { label: "O‘RTA", avatar: "🤖", desc: "4 qadam oldindan ko‘radi" },
-    { label: "QIYIN", avatar: "😈", desc: "5–6 qadam, kuchli himoya" },
-    { label: "PROFESSIONAL", avatar: "🏆", desc: "8+ qadam — eng qiyin" },
-  ];
-
-  const getTutorialTips = (isSupka) => [
-    "1-qadam: Oq toshingizni bosing (pastdagi oq doiralar).",
-    "2-qadam: Yashil nuqtali qora katakka bosing — shu yerga yurasiz.",
-    "Eslatma: Faqat qora (to‘q) kataklarda yuriladi.",
-    isSupka 
-      ? "Qizil supka = majburiy yeyish! Faqat shu toshni yuring." 
-      : "Toshni yeyish ixtiyoriy, lekin raqib toshini yutsangiz foydali!",
-    "Agar qizil nuqta bo‘lsa — raqib toshini yeyishingiz mumkin!",
-    "Maqsad: raqibning barcha toshlarini yeb, g‘alaba qozonish.",
+    { label: "EASY", avatar: "🙂", hoverAvatar: "😉" },
+    { label: "MEDIUM", avatar: "🤖", hoverAvatar: "⚡" },
+    { label: "HARD", avatar: "😈", hoverAvatar: "🔥" },
+    { label: "PROFESSIONAL", avatar: "🏆", hoverAvatar: "👑" },
   ];
 
   export default function Checkers() {
     const [gameMode, setGameMode] = useState(null);
-    const [menuSubMode, setMenuSubMode] = useState(null); // 'bot' yoki 'friends' tanlovini ushlab turadi
-    const [isSupkaRule, setIsSupkaRule] = useState(false);
+    const [isSupkaRule, setIsSupkaRule] = useState(true);
     const [botDifficulty, setBotDifficulty] = useState(0);
     const [pieces, setPieces] = useState(initialPieces);
     const [isWhiteTurn, setIsWhiteTurn] = useState(true);
     const [selectedId, setSelectedId] = useState(null);
     const [isBotThinking, setIsBotThinking] = useState(false);
-    const [moveCount, setMoveCount] = useState(0);
-    const [tutorialTipIndex, setTutorialTipIndex] = useState(0);
+    const [hoveredIdx, setHoveredIdx] = useState(null);
+    const [isFriendHovered, setIsFriendHovered] = useState(false);
 
     const [globalTime, setGlobalTime] = useState(600);
-    const [turnTime, setTurnTime] = useState(45);
+    const [turnTime, setTurnTime] = useState(30);
     const [winner, setWinner] = useState(null);
 
-    const isTutorialMode = botDifficulty === 0 && gameMode === "bot";
     const boardMatrix = useMemo(() => buildMatrix(pieces), [pieces]);
+    const whiteCount = pieces.filter(p => p.type.startsWith('w')).length;
+    const blackCount = pieces.filter(p => p.type.startsWith('b')).length;
 
     const getMovesForPiece = (p, turnIsWhite, matrix = boardMatrix) => {
       if (!p) return { validMoves: [], captures: [] };
@@ -169,8 +157,7 @@ const { Title, Text, Paragraph } = Typography;
       return getMovesForPiece(piece, isWhiteTurn, boardMatrix);
     }, [selectedId, isWhiteTurn, pieces, winner, mandatoryCaptures]);
 
-    const showMoveHints =
-      isTutorialMode;
+    const showMoveHints = false;
 
     useEffect(() => {
       if (!gameMode || winner) return;
@@ -179,45 +166,40 @@ const { Title, Text, Paragraph } = Typography;
           if (prev <= 1) {
             setIsWhiteTurn((t) => !t);
             setSelectedId(null);
-            return 45;
+            return gameMode === "bot" ? 30 : 45;
           }
           return prev - 1;
         });
-        setGlobalTime((prev) => {
-          if (prev <= 1) {
-            setWinner("Durrang (Umumiy vaqt tugadi!)");
-            clearInterval(timer);
-            return 0;
-          }
-          return prev - 1;
-        });
+        if (gameMode !== "bot") {
+          setGlobalTime((prev) => {
+            if (prev <= 1) {
+              setWinner("Draw (Time is up!)");
+              clearInterval(timer);
+              return 0;
+            }
+            return prev - 1;
+          });
+        }
       }, 1000);
       return () => clearInterval(timer);
     }, [isWhiteTurn, winner, gameMode]);
 
     useEffect(() => {
       if (!gameMode) return;
-      setTurnTime(45);
+      setTurnTime(gameMode === "bot" ? 30 : 45);
       checkGameOver();
     }, [isWhiteTurn, gameMode, pieces]);
 
     useEffect(() => {
       if (gameMode === "bot" && !isWhiteTurn && !winner) {
         setIsBotThinking(true);
-        const delay = botDifficulty === 0 ? 1400 : botDifficulty === 4 ? 1100 : botDifficulty >= 2 ? 800 : 1000;
+        const delay = 1000;
         const botDelay = setTimeout(async () => {
           await makeBotMove();
         }, delay);
         return () => clearTimeout(botDelay);
       }
     }, [isWhiteTurn, winner, gameMode, botDifficulty]);
-
-    useEffect(() => {
-      const tips = getTutorialTips(isSupkaRule);
-      if (isTutorialMode && isWhiteTurn && moveCount < tips.length) {
-        setTutorialTipIndex(Math.min(moveCount, tips.length - 1));
-      }
-    }, [moveCount, isWhiteTurn, isTutorialMode, isSupkaRule]);
 
     const formatTime = (seconds) => {
       const mins = Math.floor(seconds / 60);
@@ -232,16 +214,16 @@ const { Title, Text, Paragraph } = Typography;
       if (whitePieces.length === 0) {
         setWinner(
           gameMode === "bot"
-            ? "Bot g'alaba qozondi! Hamma toshingiz tugadi."
-            : "Qora toshlar yutdi!"
+            ? "Bot wins! All your pieces are captured."
+            : "Black wins!"
         );
         return;
       }
       if (blackPieces.length === 0) {
         setWinner(
           gameMode === "bot"
-            ? "Siz yutdingiz! Botning hamma toshini urib bitirdingiz. 🎉"
-            : "Oq toshlar yutdi!"
+            ? "You win! All bot pieces captured. 🎉"
+            : "White wins!"
         );
         return;
       }
@@ -255,8 +237,8 @@ const { Title, Text, Paragraph } = Typography;
         if (p.type.startsWith("b") && (validMoves.length > 0 || captures.length > 0)) hasBlackMoves = true;
       });
 
-      if (isWhiteTurn && !hasWhiteMoves) setWinner("Qoralar yutdi! Yo'llar yopildi.");
-      if (!isWhiteTurn && !hasBlackMoves) setWinner("Oqlar yutdi! Yo'llar yopildi. 🎉");
+      if (isWhiteTurn && !hasWhiteMoves) setWinner("Black wins! No more moves.");
+      if (!isWhiteTurn && !hasBlackMoves) setWinner("White wins! No more moves. 🎉");
     };
 
     const applyMove = async (pieceId, row, col, capturedId) => {
@@ -281,9 +263,9 @@ const { Title, Text, Paragraph } = Typography;
 
       setPieces(movedPieces);
 
-      // Tosh ustiga kelishi uchun animatsiya yarmini kutamiz (CSS transition 0.6s)
+      // Animatsiya uchun kutish
       if (capturedId || piecesToBurnIds.length > 0) {
-        await new Promise(r => setTimeout(r, 350));
+        await new Promise(r => setTimeout(r, 150));
       }
 
       // 2. Endi urilgan toshni va kuyganlarni o'chiramiz
@@ -306,7 +288,6 @@ const { Title, Text, Paragraph } = Typography;
 
       setPieces(finalPieces);
       setIsWhiteTurn(nextIsWhiteTurn);
-      if (isWhiteTurn) setMoveCount((m) => m + 1);
     };
 
   const handleCellClick = async (row, col) => {
@@ -339,8 +320,12 @@ const { Title, Text, Paragraph } = Typography;
 
       // Agar Supka bo'lsa yeyish majburiy. 
       // Supkasiz bo'lsa: agar ham yeyish, ham yurish mumkin bo'lsa - bosilgan katakka qarab ishlaydi.
-      if (hitCapture && (isSupkaRule || !isTryingNormal)) {
+      if (hitCapture) {
+        const selectedPiece = pieces.find(p => p.id === selectedId);
         await applyMove(selectedId, row, col, hitCapture.target.id);
+        
+        // Foydalanuvchi instruksiyasi: damkaga chiqib 2-toshni olmasa, tosh olib tashlanadi (supka)
+        // Ammo o'yin mantiqan davom ettirishga imkon berishi kerak.
         return;
       }
 
@@ -368,12 +353,12 @@ const { Title, Text, Paragraph } = Typography;
         ));
 
         if (killId) {
-          // Tosh ustiga kelganda (350ms) raqib toshini o'chiramiz
-          await new Promise(r => setTimeout(r, 350));
+          // Bot urayotganda sekinroq animatsiya (2-3 tasini yeyayotganda aniq ko'rinishi uchun)
+          await new Promise(r => setTimeout(r, 500));
           setPieces(prev => prev.filter(p => p.id !== killId));
-          await new Promise(r => setTimeout(r, 550)); // Qolgan animatsiya va kichik pauza
+          await new Promise(r => setTimeout(r, 700));
         } else {
-          await new Promise(r => setTimeout(r, 800));
+          await new Promise(r => setTimeout(r, 350));
         }
       }
 
@@ -405,27 +390,21 @@ const { Title, Text, Paragraph } = Typography;
     setIsWhiteTurn(true);
     setSelectedId(null);
     setGlobalTime(600);
-    setTurnTime(45);
+    setTurnTime(30);
     setWinner(null);
     setGameMode(null);
-      setMenuSubMode(null);
-      setIsSupkaRule(false);
     setIsBotThinking(false);
-    setMoveCount(0);
-    setTutorialTipIndex(0);
   };
 
-    const startGame = (mode, supka) => {
+  const startGame = (mode, supka) => {
     setPieces(initialPieces);
     setIsWhiteTurn(true);
     setSelectedId(null);
     setGlobalTime(600);
-    setTurnTime(45);
+    setTurnTime(mode === "bot" ? 30 : 45);
     setWinner(null);
-    setMoveCount(0);
-    setTutorialTipIndex(0);
     setGameMode(mode);
-      setIsSupkaRule(supka);
+    setIsSupkaRule(supka);
   };
 
   const isHintCell = (r, c) => {
@@ -437,18 +416,15 @@ const { Title, Text, Paragraph } = Typography;
   };
 
   const pieceHasSupka = (piece) => {
-    // Supkasiz rejimda majburiyat markerini ko'rsatmaymiz
-    if (!piece || winner || !isSupkaRule) return false;
-    const isWhitePiece = piece.type.startsWith("w");
-    if (isWhiteTurn && isWhitePiece) return mustCapturePieceIds.has(piece.id);
-    if (!isWhiteTurn && !isWhitePiece) return mustCapturePieceIds.has(piece.id);
-    return false;
+    return false; // Talabga ko'ra markerlar olib tashlandi
   };
 
-  const tutorialTips = getTutorialTips(isSupkaRule);
-
   if (!gameMode) {
-    const diff = DIFFICULTIES[botDifficulty];
+    // Cursor qaysi tugma ustida tursa, o'shaning emojisini ko'rsatish
+    let activeEmoji = DIFFICULTIES[botDifficulty].avatar;
+    if (isFriendHovered) activeEmoji = "🤝";
+    else if (hoveredIdx !== null) activeEmoji = DIFFICULTIES[hoveredIdx].hoverAvatar;
+
     return (
       <ConfigProvider
         theme={{
@@ -460,110 +436,50 @@ const { Title, Text, Paragraph } = Typography;
       >
       <div className="casual-menu-bg">
         <div className="casual-top-bar">
-          <Title className="casual-main-title">SHASHKA</Title>
+          <Title className="casual-main-title">CHECKERS</Title>
         </div>
 
-        <Text className="casual-instruction">
-          {menuSubMode ? "O'yin qoidasini tanlang:" : "Raqibning barcha shashkalarini yeng va g'olib bo'ling!"}
-        </Text>
-
         <Card className="casual-card" variant="borderless">
-          {!menuSubMode ? (
-            <>
-              <div className="casual-avatar-circle">
-                <span className="casual-avatar-emoji">{diff.avatar}</span>
-              </div>
+          <div className="casual-avatar-circle">
+            <span className="casual-avatar-emoji">{activeEmoji}</span>
+          </div>
 
-              <div className="casual-controls-row">
-                <Title level={2} className={`difficulty-text diff-${botDifficulty}`}>{diff.label}</Title>
-              </div>
-              <Paragraph className="difficulty-desc">{diff.desc}</Paragraph>
-
-              <div className="slider-wrapper">
-                <Slider
-                  min={0}
-                  max={4}
-                  value={botDifficulty}
-                  onChange={setBotDifficulty}
-                  tooltip={{ open: false }}
-                />
-                <div className="slider-ticks slider-ticks-5">
-                  {DIFFICULTIES.map((d, i) => (
-                    <span key={d.label} onClick={() => setBotDifficulty(i)}>
-                      {i === 0 ? "Boshl." : d.label.split(" ")[0].slice(0, 4)}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-                <Button 
-                  type="primary" 
-                  block 
-                  className="casual-main-btn bot-play-btn"
-                  onClick={() => setMenuSubMode("bot")}
-                  icon={<RobotOutlined style={{ fontSize: '24px' }} />}
-                  style={{ height: 'auto', padding: '12px' }}
-                >
-                  <div className="btn-large-lbl">
-                    <span>YURISH REJIM</span>
-                    <Title level={4} className="btn-title">BOTGA QARSHI</Title>
-                  </div>
-                </Button>
-
-                <Button 
-                  block 
-                  className="casual-main-btn friend-play-btn"
-                  onClick={() => setMenuSubMode("friends")}
-                  icon={<TeamOutlined style={{ fontSize: '24px' }} />}
-                  style={{ height: 'auto', padding: '12px' }}
-                >
-                  <div className="btn-large-lbl">
-                    <span>YURISH REJIM</span>
-                    <Title level={4} className="btn-title">DO'STGA QARSHI</Title>
-                  </div>
-                </Button>
-              </Space>
-            </>
-          ) : (
-            <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+          <Space direction="vertical" size="middle" style={{ width: '100%', marginTop: '20px' }}>
+            {DIFFICULTIES.map((d, idx) => (
               <Button 
-                type="primary" 
-                danger
+                key={idx}
+                type={botDifficulty === idx ? "primary" : "default"}
                 block 
-                className="casual-main-btn bot-play-btn"
-                onClick={() => startGame(menuSubMode, true)}
-                icon={<FireOutlined style={{ fontSize: '24px' }} />}
+                className={`casual-main-btn diff-btn-${idx}`}
+                onClick={() => {
+                  setBotDifficulty(idx);
+                  startGame("bot", true);
+                }}
+                onMouseEnter={() => setHoveredIdx(idx)}
+                onMouseLeave={() => setHoveredIdx(null)}
+                icon={<RobotOutlined style={{ fontSize: '24px' }} />}
                 style={{ height: 'auto', padding: '12px' }}
               >
                 <div className="btn-large-lbl">
-                  <span>QOIDA</span>
-                  <Title level={4} className="btn-title">SUPKA BILAN</Title>
+                  <Title level={4} className="btn-title">{d.label}</Title>
                 </div>
               </Button>
-              <Button 
-                block 
-                className="casual-main-btn friend-play-btn"
-                onClick={() => startGame(menuSubMode, false)}
-                icon={<SafetyOutlined style={{ fontSize: '24px' }} />}
-                style={{ height: 'auto', padding: '12px', backgroundColor: "#34495e" }}
-              >
-                <div className="btn-large-lbl">
-                  <span>QOIDA</span>
-                  <Title level={4} className="btn-title">SUPKASIZ</Title>
-                </div>
-              </Button>
-              <Button 
-                type="link" 
-                block 
-                icon={<ArrowLeftOutlined />} 
-                onClick={() => setMenuSubMode(null)}
-                style={{ color: '#5d4037' }}
-              >
-                Orqaga
-              </Button>
-            </Space>
-          )}
+            ))}
+
+            <Button 
+              block 
+              className="casual-main-btn friend-play-btn"
+              onClick={() => startGame("friends", true)}
+              onMouseEnter={() => setIsFriendHovered(true)}
+              onMouseLeave={() => setIsFriendHovered(false)}
+              icon={<TeamOutlined style={{ fontSize: '24px' }} />}
+              style={{ height: 'auto', padding: '12px' }}
+            >
+              <div className="btn-large-lbl">
+                <Title level={4} className="btn-title">VS FRIEND</Title>
+              </div>
+            </Button>
+          </Space>
         </Card>
       </div>
       </ConfigProvider>
@@ -579,34 +495,25 @@ const { Title, Text, Paragraph } = Typography;
         },
       }}
     >
-      <div className="game-container">
+      <div className={`game-container ${isWhiteTurn ? 'turn-user' : 'turn-opponent'}`}>
         <div className="header-box">
           <Button icon={<ArrowLeftOutlined />} onClick={restartGame} type="text" style={{ color: 'white' }}>
-            Menyuga
+            Menu
           </Button>
           <Title level={4} style={{ margin: 0, color: 'white' }}>
             {gameMode === "bot"
               ? `🤖 ${DIFFICULTIES[botDifficulty].label}`
-              : "👥 Do‘stlar"}
+              : "👥 Friends"}
           </Title>
-        </div>
-
-        <div className={`tutorial-slot ${isTutorialMode ? "has-tutorial" : ""}`} aria-hidden={!isTutorialMode || winner}>
-          <div
-            className={`tutorial-banner ${isTutorialMode && isWhiteTurn && !winner ? "is-visible" : "is-hidden"}`}
-          >
-            <BulbOutlined className="tutorial-icon" />
-            <Text style={{ color: 'white' }}>{tutorialTips[tutorialTipIndex]}</Text>
-          </div>
         </div>
 
         {winner && (
           <Modal
-            title={<Title level={3} style={{ margin: 0 }}>🎉 O‘yin Tugadi!</Title>}
+            title={<Title level={3} style={{ margin: 0 }}>🎉 Game Over!</Title>}
             open={!!winner}
             onOk={restartGame}
             cancelButtonProps={{ style: { display: 'none' } }}
-            okText="Qayta o'ynash"
+            okText="Play Again"
             closable={false}
             centered
           >
@@ -615,21 +522,26 @@ const { Title, Text, Paragraph } = Typography;
         )}
 
         <div className="timers-box">
-          <div className="global-timer">Umumiy: {formatTime(globalTime)}</div>
-          <div className="turn-timer">Yurish: {turnTime}s</div>
+          {gameMode !== "bot" && <div className="global-timer">Total: {formatTime(globalTime)}</div>}
+          <div className="turn-timer" style={{ border: turnTime < 10 ? '2px solid red' : '' }}>
+            <DashboardOutlined /> {turnTime}s
+          </div>
         </div>
 
-        <div className="turn-indicator">
-          <span className="turn-label">Navbat:</span>
-          {isWhiteTurn ? (
-            <Tag color="success" className="turn-value" icon={<TrophyOutlined />}>Oq toshlar (siz)</Tag>
-          ) : (
-            isBotThinking ? (
-              <Tag color="warning" className="turn-value" icon={<RobotOutlined />}>Bot o‘ylamoqda...</Tag>
-            ) : (
-              <Tag color="error" className="turn-value" icon={<FireOutlined />}>Qora toshlar</Tag>
-            )
-          )}
+        <div className="scoreboard-wrapper">
+          <div className="score-item user-side">
+            <span className="score-label">YOU</span>
+            <span className="score-number">{whiteCount}</span>
+          </div>
+          
+          <div className="vs-divider">VS</div>
+
+          <div className="score-item opp-side">
+            <span className="score-label">
+              {gameMode === 'bot' ? 'BOT' : 'FRIEND'}
+            </span>
+            <span className="score-number">{blackCount}</span>
+          </div>
         </div>
 
         <div className="board-anchor">
@@ -682,21 +594,12 @@ const { Title, Text, Paragraph } = Typography;
                   >
                     <div className={`piece-content ${p.type.startsWith("w") ? "white-piece" : "black-piece"}`}>
                       {isKing && <span className="crown-icon">👑</span>}
-                      {hasSupka && <span className="supka-marker" title="Majburiy yeyish" />}
                     </div>
                   </div>
                 );
               })}
             </div>
           </div>
-        </div>
-
-        <div className={`tutorial-footer-slot ${isTutorialMode ? "has-tutorial" : ""}`}>
-          <p
-            className={`tutorial-footer ${isTutorialMode && !selectedId && isWhiteTurn && !winner ? "is-visible" : "is-hidden"}`}
-          >
-            Oq toshlardan birini bosing — yurishni boshlang
-          </p>
         </div>
       </div>
     </ConfigProvider>
