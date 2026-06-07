@@ -249,26 +249,29 @@ const { Title, Text, Paragraph } = Typography;
       }
 
       // 1. Faqat pozitsiyani yangilaymiz, urilgan tosh hali o'chmaydi
+      const idsToRemove = [capturedId, ...piecesToBurnIds].filter(Boolean);
       const movedPieces = pieces.map((p) => {
-          if (p.id === pieceId) {
-            let nextType = p.type;
-            if (p.type === "w" && row === 0) nextType = "wk";
-            if (p.type === "b" && row === 7) nextType = "bk";
-            return { ...p, r: row, c: col, type: nextType };
-          }
-          return p;
-        });
+        let updated = { ...p };
+        if (p.id === pieceId) {
+          let nextType = p.type;
+          if (p.type === "w" && row === 0) nextType = "wk";
+          if (p.type === "b" && row === 7) nextType = "bk";
+          updated = { ...updated, r: row, c: col, type: nextType };
+        }
+        if (idsToRemove.includes(p.id)) updated.isCaptured = true;
+        return updated;
+      });
 
       setPieces(movedPieces);
 
-      // Animatsiya uchun kutish
-      if (capturedId || piecesToBurnIds.length > 0) {
-        await new Promise(r => setTimeout(r, 150));
+      // Animatsiya uchun biroz ko'proq kutamiz (0.8 soniya)
+      if (idsToRemove.length > 0) {
+        await new Promise(r => setTimeout(r, 800));
       }
 
       // 2. Endi urilgan toshni va kuyganlarni o'chiramiz
       const finalPieces = movedPieces.filter(
-        (p) => p.id !== capturedId && !piecesToBurnIds.includes(p.id)
+        (p) => !p.isCaptured
       );
 
       if (capturedId) {
@@ -351,10 +354,12 @@ const { Title, Text, Paragraph } = Typography;
         ));
 
         if (killId) {
-          // Bot urayotganda sekinroq animatsiya (2-3 tasini yeyayotganda aniq ko'rinishi uchun)
-          await new Promise(r => setTimeout(r, 500));
-          setPieces(prev => prev.filter(p => p.id !== killId));
-          await new Promise(r => setTimeout(r, 700));
+          // Bot urayotganda toshni avval belgilaymiz va biroz uzoqroq ko'rsatamiz
+          setPieces(prev => prev.map(p => p.id === killId ? { ...p, isCaptured: true } : p));
+          await new Promise(r => setTimeout(r, 800));
+          // Keyin o'chiramiz
+          setPieces(prev => prev.filter(p => !p.isCaptured));
+          await new Promise(r => setTimeout(r, 400));
         } else {
           await new Promise(r => setTimeout(r, 350));
         }
@@ -584,12 +589,13 @@ const { Title, Text, Paragraph } = Typography;
               {pieces.map((p) => {
                 const isSelected = p.id === selectedId;
                 const isKing = p.type === "wk" || p.type === "bk";
+                const isBeingCaptured = p.isCaptured;
                 const hasSupka = pieceHasSupka(p);
 
                 return (
                   <div
                     key={p.id}
-                    className={`piece ${isSelected ? "selected" : ""} ${hasSupka ? "has-supka" : ""}`}
+                    className={`piece ${isSelected ? "selected" : ""} ${hasSupka ? "has-supka" : ""} ${isBeingCaptured ? "is-captured" : ""}`}
                     style={{
                       left: `${p.c * 12.5}%`,
                       top: `${p.r * 12.5}%`,

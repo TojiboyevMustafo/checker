@@ -675,7 +675,9 @@ body {
   z-index: 10;
   /* Toshlar silliq yurishi uchun eng muhim joy */
   transition: top 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
-              left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+              left 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              transform 0.5s ease,
+              opacity 0.8s ease;
   cursor: pointer;
   touch-action: manipulation;
 }
@@ -698,6 +700,23 @@ body {
   outline: 3px solid #38bdf8;
   box-shadow: 0 0 20px #38bdf8, 0 10px 20px rgba(0,0,0,0.7);
   transform: scale(1.05);
+}
+
+.piece.is-captured {
+  transform: scale(0.2) rotate(45deg);
+  opacity: 0;
+  filter: brightness(0.3) sepia(1) hue-rotate(-50deg) saturate(5); /* Qizg'ish effekt */
+  z-index: 5;
+  pointer-events: none;
+  animation: capture-shake 0.4s ease-in-out;
+}
+
+@keyframes capture-shake {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  20% { transform: translate(-3px, 0); }
+  40% { transform: translate(3px, 0); }
+  60% { transform: translate(-3px, 0); }
+  80% { transform: translate(3px, 0); }
 }
 
 /* Majburiy yeyish — supka (oq va qora toshlarda) */
