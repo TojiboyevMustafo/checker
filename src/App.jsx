@@ -474,11 +474,13 @@ const { Title, Text, Paragraph } = Typography;
               onClick={() => startGame("friends", true)}
               onMouseEnter={() => setIsFriendHovered(true)}
               onMouseLeave={() => setIsFriendHovered(false)}
-              icon={<span className="btn-emoji">👥</span>}
               style={{ height: 'auto', padding: '12px' }}
             >
-              <div className="btn-large-lbl">
-                <Title level={4} className="btn-title">VS FRIEND</Title>
+              <div className="btn-arcade-content">
+                <span className="btn-emoji-static">👥</span>
+                <div className="btn-large-lbl">
+                  <Title level={4} className="btn-title">VS FRIEND</Title>
+                </div>
               </div>
             </Button>
           </Space>
