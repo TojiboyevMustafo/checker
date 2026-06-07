@@ -441,7 +441,11 @@ const { Title, Text, Paragraph } = Typography;
 
         <Card className="casual-card" variant="borderless">
           <div className="casual-avatar-circle">
-            <span className={`casual-avatar-emoji ${isHovering ? 'emoji-pop' : ''}`}>{displayEmoji}</span>
+            {isHovering ? (
+              <span className="casual-avatar-emoji emoji-pop">{displayEmoji}</span>
+            ) : (
+              <img src="/assets/checker-new.png" alt="" className="casual-avatar-logo" />
+            )}
           </div>
 
           <Space direction="vertical" size="middle" style={{ width: '100%', marginTop: '20px' }}>
