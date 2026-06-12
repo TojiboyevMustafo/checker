@@ -255,25 +255,37 @@ const { Title, Text, Paragraph } = Typography;
 
       const idsToRemove = [capturedId, ...piecesToBurnIds].filter(Boolean);
       
-      // 1. Vizual harakat va urilganlik holatini belgilash
-      const intermediatePieces = pieces.map(p => {
+      // 1. Avval faqat yurayotgan toshni siljitamiz (harakat boshlanadi)
+      setPieces(prev => prev.map(p => {
         if (p.id === pieceId) {
           let nextType = p.type;
           if (p.type === "w" && row === 0) nextType = "wk";
           if (p.type === "b" && row === 7) nextType = "bk";
           return { ...p, r: row, c: col, type: nextType };
         }
-        if (idsToRemove.includes(p.id)) return { ...p, isCaptured: true };
         return p;
-      });
-      setPieces(intermediatePieces);
+      }));
 
-      if (idsToRemove.length > 0) {
-        await new Promise(r => setTimeout(r, 600));
+      // Tosh uriladigan toshning "ustiga" kelishi uchun kutamiz (transition 0.5s)
+      if (capturedId) {
+        await new Promise(r => setTimeout(r, 250)); // Attacker victim ustiga chiqqanda
+        setPieces(prev => prev.map(p => p.id === capturedId ? { ...p, isCaptured: true } : p));
+        await new Promise(r => setTimeout(r, 350)); // Animatsiya tugashini kutish
+      } else {
+        await new Promise(r => setTimeout(r, 500));
       }
 
-      // 2. Navbat almashish mantiqini aniqlash
-      const finalPieces = intermediatePieces.filter(p => !p.isCaptured);
+      // 2. Urilgan toshlarni butunlay o'chiramiz va navbatni yangilaymiz
+      const finalPieces = pieces.map(p => {
+        if (p.id === pieceId) {
+          let nextType = p.type;
+          if (p.type === "w" && row === 0) nextType = "wk";
+          if (p.type === "b" && row === 7) nextType = "bk";
+          return { ...p, r: row, c: col, type: nextType };
+        }
+        return p;
+      }).filter(p => !idsToRemove.includes(p.id));
+
       const movedPiece = finalPieces.find(p => p.id === pieceId);
       let nextIsWhiteTurn = !isWhiteTurn;
 
@@ -351,12 +363,13 @@ const { Title, Text, Paragraph } = Typography;
         ));
 
         if (killId) {
-          // Bot urayotganda toshni avval belgilaymiz va biroz uzoqroq ko'rsatamiz
+          // Bot toshi urilayotgan tosh ustiga kelishini kutamiz (0.3s)
+          await new Promise(r => setTimeout(r, 300));
           setPieces(prev => prev.map(p => p.id === killId ? { ...p, isCaptured: true } : p));
-          await new Promise(r => setTimeout(r, 800));
+          await new Promise(r => setTimeout(r, 500));
           // Keyin o'chiramiz
           setPieces(prev => prev.filter(p => !p.isCaptured));
-          await new Promise(r => setTimeout(r, 400));
+          await new Promise(r => setTimeout(r, 200));
         } else {
           await new Promise(r => setTimeout(r, 350));
         }
@@ -588,34 +601,49 @@ const { Title, Text, Paragraph } = Typography;
                       );
                     })
                 )}
+                
+                {/* Toshlar qatlami endi grid ichida - bu aniq markazlashni ta'minlaydi */}
+                {pieces.map((p) => {
+                  const isSelected = p.id === selectedId;
+                  const isKing = p.type === "wk" || p.type === "bk";
+                  const isBeingCaptured = p.isCaptured;
+                  const hasSupka = pieceHasSupka(p);
 
-              {/* Toshlar qatlami - absolute joylashuv uchun */}
-              {pieces.map((p) => {
-                const isSelected = p.id === selectedId;
-                const isKing = p.type === "wk" || p.type === "bk";
-                const isBeingCaptured = p.isCaptured;
-                const hasSupka = pieceHasSupka(p);
-
-                return (
-                  <div
-                    key={p.id}
-                    className={`piece ${isSelected ? "selected" : ""} ${hasSupka ? "has-supka" : ""} ${isBeingCaptured ? "is-captured" : ""}`}
-                    style={{
+                  return (
+                    <div
+                      key={p.id}
+                      className={`piece ${isSelected ? "selected" : ""} ${hasSupka ? "has-supka" : ""} ${isBeingCaptured ? "is-captured" : ""}`}
+                      style={{
+                      // Faqat joylashuvni qoldiramiz, kichrayish effektini olib tashlaymiz
                       transform: `translate(${p.c * 100}%, ${p.r * 100}%)`,
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleCellClick(p.r, p.c);
-                    }}
-                  >
-                    <div className={`piece-content ${p.type.startsWith("w") ? "white-piece" : "black-piece"}`}>
-                      {isKing ? (
-                        <CrownOutlined style={{ fontSize: '26px', color: '#faad14', filter: 'drop-shadow(0 0 5px rgba(250,173,20,0.4))' }} />
-                      ) : null}
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        width: "12.5%",
+                        height: "12.5%",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        transition: "transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.5s",
+                        zIndex: isBeingCaptured ? 100 : (isSelected ? 110 : 10), // Qatlamlash uchun zIndex ni saqlaymiz
+                      opacity: isBeingCaptured ? 0 : 1, // Urilganda shunchaki fade-out bo'ladi
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleCellClick(p.r, p.c);
+                      }}
+                    >
+                      <div 
+                        className={`piece-content ${p.type.startsWith("w") ? "white-piece" : "black-piece"}`}
+                        style={{ background: isBeingCaptured ? "#ff4d4f" : "" }}
+                      >
+                        {isKing ? (
+                          <CrownOutlined style={{ fontSize: '26px', color: '#faad14', filter: 'drop-shadow(0 0 5px rgba(250,173,20,0.4))' }} />
+                        ) : null}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
             </div>
           </div>
         </div>
