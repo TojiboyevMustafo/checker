@@ -17,7 +17,9 @@ import {
   BulbOutlined, 
   TrophyOutlined,
   DashboardOutlined,
-  FireOutlined
+  FireOutlined,
+  UserOutlined,
+  CrownOutlined
 } from "@ant-design/icons";
 import "./App.css";
 
@@ -60,8 +62,11 @@ const { Title, Text, Paragraph } = Typography;
     const [globalTime, setGlobalTime] = useState(600);
     const [turnTime, setTurnTime] = useState(30);
     const [winner, setWinner] = useState(null);
+    const [isProcessing, setIsProcessing] = useState(false);
 
-    const boardMatrix = useMemo(() => buildMatrix(pieces), [pieces]);
+    // Matrix faqat urilmagan toshlardan qurilishi kerak, shunda multi-jump hisob-kitobi buzilmaydi
+    const boardMatrix = useMemo(() => buildMatrix(pieces.filter(p => !p.isCaptured)), [pieces]);
+    
     const whiteCount = pieces.filter(p => p.type.startsWith('w')).length;
     const blackCount = pieces.filter(p => p.type.startsWith('b')).length;
 
@@ -220,7 +225,7 @@ const { Title, Text, Paragraph } = Typography;
       if (blackPieces.length === 0) {
         setWinner(
           gameMode === "bot"
-            ? "You win! All bot pieces captured. 🎉"
+            ? "You win! All bot pieces captured."
             : "White wins!"
         );
         return;
@@ -236,11 +241,11 @@ const { Title, Text, Paragraph } = Typography;
       });
 
       if (isWhiteTurn && !hasWhiteMoves) setWinner("Black wins! No more moves.");
-      if (!isWhiteTurn && !hasBlackMoves) setWinner("White wins! No more moves. 🎉");
+      if (!isWhiteTurn && !hasBlackMoves) setWinner("White wins! No more moves.");
     };
 
     const applyMove = async (pieceId, row, col, capturedId) => {
-      let nextIsWhiteTurn = !isWhiteTurn;
+      setIsProcessing(true);
       let piecesToBurnIds = [];
 
       if (isSupkaRule && !capturedId && mandatoryCaptures.length > 0) {
@@ -248,51 +253,43 @@ const { Title, Text, Paragraph } = Typography;
         piecesToBurnIds = [burnId];
       }
 
-      // 1. Faqat pozitsiyani yangilaymiz, urilgan tosh hali o'chmaydi
       const idsToRemove = [capturedId, ...piecesToBurnIds].filter(Boolean);
-      const movedPieces = pieces.map((p) => {
-        let updated = { ...p };
+      
+      // 1. Vizual harakat va urilganlik holatini belgilash
+      const intermediatePieces = pieces.map(p => {
         if (p.id === pieceId) {
           let nextType = p.type;
           if (p.type === "w" && row === 0) nextType = "wk";
           if (p.type === "b" && row === 7) nextType = "bk";
-          updated = { ...updated, r: row, c: col, type: nextType };
+          return { ...p, r: row, c: col, type: nextType };
         }
-        if (idsToRemove.includes(p.id)) updated.isCaptured = true;
-        return updated;
+        if (idsToRemove.includes(p.id)) return { ...p, isCaptured: true };
+        return p;
       });
+      setPieces(intermediatePieces);
 
-      setPieces(movedPieces);
-
-      // Animatsiya uchun biroz ko'proq kutamiz (0.8 soniya)
       if (idsToRemove.length > 0) {
-        await new Promise(r => setTimeout(r, 800));
+        await new Promise(r => setTimeout(r, 600));
       }
 
-      // 2. Endi urilgan toshni va kuyganlarni o'chiramiz
-      const finalPieces = movedPieces.filter(
-        (p) => !p.isCaptured
-      );
+      // 2. Navbat almashish mantiqini aniqlash
+      const finalPieces = intermediatePieces.filter(p => !p.isCaptured);
+      const movedPiece = finalPieces.find(p => p.id === pieceId);
+      let nextIsWhiteTurn = !isWhiteTurn;
 
-      if (capturedId) {
-        const movedPiece = finalPieces.find(p => p.id === pieceId);
+      if (capturedId && movedPiece) {
         const { captures } = getMovesForPiece(movedPiece, isWhiteTurn, buildMatrix(finalPieces));
-        if (captures.length > 0) {
-          nextIsWhiteTurn = isWhiteTurn; // Navbat almashmaydi
-          setSelectedId(pieceId); 
-        } else {
-          setSelectedId(null);
-        }
-      } else {
-        setSelectedId(null);
+        if (captures.length > 0) nextIsWhiteTurn = isWhiteTurn;
       }
 
       setPieces(finalPieces);
+      setSelectedId(nextIsWhiteTurn === isWhiteTurn ? pieceId : null);
       setIsWhiteTurn(nextIsWhiteTurn);
+      setIsProcessing(false);
     };
 
   const handleCellClick = async (row, col) => {
-    if (winner) return;
+    if (winner || isProcessing) return;
     if (gameMode === "bot" && !isWhiteTurn) return;
 
     const isPlayableCell = (row + col) % 2 === 1;
@@ -461,10 +458,11 @@ const { Title, Text, Paragraph } = Typography;
                 className={`casual-main-btn diff-btn-${idx}`}
                 onClick={() => {
                   setBotDifficulty(idx);
+                  setHoveredIdx(null); // Bosilganda holatni tozalash
                   startGame("bot", true);
                 }}
-                onMouseEnter={() => setHoveredIdx(idx)}
-                onMouseLeave={() => setHoveredIdx(null)}
+                onPointerEnter={() => setHoveredIdx(idx)}
+                onPointerLeave={() => setHoveredIdx(null)}
                 style={{ height: 'auto', padding: '12px' }}
               >
                 <div className="btn-arcade-content">
@@ -480,8 +478,8 @@ const { Title, Text, Paragraph } = Typography;
               block 
               className="casual-main-btn friend-play-btn"
               onClick={() => startGame("friends", true)}
-              onMouseEnter={() => setIsFriendHovered(true)}
-              onMouseLeave={() => setIsFriendHovered(false)}
+              onPointerEnter={() => setIsFriendHovered(true)}
+              onPointerLeave={() => setIsFriendHovered(false)}
               style={{ height: 'auto', padding: '12px' }}
             >
               <div className="btn-arcade-content">
@@ -521,7 +519,13 @@ const { Title, Text, Paragraph } = Typography;
 
         {winner && (
           <Modal
-            title={<Title level={3} style={{ margin: 0 }}>🎉 Game Over!</Title>}
+            title={
+              <Title level={3} style={{ margin: 0 }}>
+                {winner.includes("You win") || winner.includes("White wins") 
+                  ? "🎉 Victory!" 
+                  : "😔 Game Over"}
+              </Title>
+            }
             open={!!winner}
             onOk={restartGame}
             cancelButtonProps={{ style: { display: 'none' } }}
@@ -597,8 +601,7 @@ const { Title, Text, Paragraph } = Typography;
                     key={p.id}
                     className={`piece ${isSelected ? "selected" : ""} ${hasSupka ? "has-supka" : ""} ${isBeingCaptured ? "is-captured" : ""}`}
                     style={{
-                      left: `${p.c * 12.5}%`,
-                      top: `${p.r * 12.5}%`,
+                      transform: `translate(${p.c * 100}%, ${p.r * 100}%)`,
                     }}
                     onClick={(e) => {
                       e.stopPropagation();
@@ -606,7 +609,9 @@ const { Title, Text, Paragraph } = Typography;
                     }}
                   >
                     <div className={`piece-content ${p.type.startsWith("w") ? "white-piece" : "black-piece"}`}>
-                      {isKing && <span className="crown-icon">👑</span>}
+                      {isKing ? (
+                        <CrownOutlined style={{ fontSize: '26px', color: '#faad14', filter: 'drop-shadow(0 0 5px rgba(250,173,20,0.4))' }} />
+                      ) : null}
                     </div>
                   </div>
                 );
