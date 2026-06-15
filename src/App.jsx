@@ -253,7 +253,7 @@ const { Title, Text, Paragraph } = Typography;
         piecesToBurnIds = [burnId];
       }
 
-      const idsToRemove = [capturedId, ...piecesToBurnIds].filter(Boolean);
+      const idsToAnimateAndRemove = [capturedId, ...piecesToBurnIds].filter(Boolean);
       
       // 1. Avval faqat yurayotgan toshni siljitamiz (harakat boshlanadi)
       setPieces(prev => prev.map(p => {
@@ -266,16 +266,20 @@ const { Title, Text, Paragraph } = Typography;
         return p;
       }));
 
-      // Tosh uriladigan toshning "ustiga" kelishi uchun kutamiz (transition 0.5s)
-      if (capturedId) {
-        await new Promise(r => setTimeout(r, 250)); // Attacker victim ustiga chiqqanda
-        setPieces(prev => prev.map(p => p.id === capturedId ? { ...p, isCaptured: true } : p));
-        await new Promise(r => setTimeout(r, 350)); // Animatsiya tugashini kutish
+      if (idsToAnimateAndRemove.length > 0) {
+        // 2. Tosh ustiga kelishini kutamiz (0.3s)
+        await new Promise(r => setTimeout(r, 300));
+        // 3. Endi raqib toshini qizil qilamiz
+        setPieces(prev => prev.map(p => 
+          idsToAnimateAndRemove.includes(p.id) ? { ...p, isCaptured: true } : p
+        ));
+        // 4. Qizarib yo'qolishi uchun biroz kutamiz
+        await new Promise(r => setTimeout(r, 400));
       } else {
-        await new Promise(r => setTimeout(r, 500));
+        // Oddiy yurish bo'lsa tezroq tugatish
+        await new Promise(r => setTimeout(r, 250));
       }
 
-      // 2. Urilgan toshlarni butunlay o'chiramiz va navbatni yangilaymiz
       const finalPieces = pieces.map(p => {
         if (p.id === pieceId) {
           let nextType = p.type;
@@ -284,7 +288,7 @@ const { Title, Text, Paragraph } = Typography;
           return { ...p, r: row, c: col, type: nextType };
         }
         return p;
-      }).filter(p => !idsToRemove.includes(p.id));
+      }).filter(p => !idsToAnimateAndRemove.includes(p.id));
 
       const movedPiece = finalPieces.find(p => p.id === pieceId);
       let nextIsWhiteTurn = !isWhiteTurn;
@@ -346,45 +350,54 @@ const { Title, Text, Paragraph } = Typography;
   };
 
     const applyBotMove = async (fromPiece, to, capturedIds, path) => {
-      // Botning yurish yo'li (intermediate squares) va uriladigan toshlar
+      // Botning yurish yo'li va uriladigan toshlar
       const steps = path && path.length > 0 ? path : [{ r: to.r, c: to.c }];
       const kills = Array.isArray(capturedIds) ? capturedIds : (capturedIds ? [capturedIds] : []);
+
+      // Harakat tezligi: oddiy yurishda juda tez (200ms), urishda sekinroq
+      const isMultiJump = kills.length > 1;
+      const isCapture = kills.length > 0;
+      const moveTime = isMultiJump ? 600 : (isCapture ? 400 : 200); 
+      const captureTime = isMultiJump ? 500 : 300;
 
       // Bot yurayotgan toshini "tanlangan" qilib belgilaymiz (z-index ko'tarilishi uchun)
       setSelectedId(fromPiece.id);
 
-      for (let i = 0; i < steps.length; i++) {
-        const step = steps[i];
-        const killId = kills[i];
+      let currentPieces = [...pieces]; // Start with current pieces state for bot's turn
 
-        // 1. Bot toshini keyingi nuqtaga suramiz (animatsiya bilan)
-        setPieces(prev => prev.map(p => 
-          p.id === fromPiece.id ? { ...p, r: step.r, c: step.c } : p
-        ));
+      for (let i = 0; i < steps.length; i++) { // Iterate through each step of the bot's move
+        const step = steps[i]; // The square the bot's piece moves to
+        const killId = kills[i]; // The piece captured *after* moving to 'step'
 
-        if (killId) {
-          // Bot toshi urilayotgan tosh ustiga kelishini kutamiz (0.3s)
-          await new Promise(r => setTimeout(r, 300));
-          setPieces(prev => prev.map(p => p.id === killId ? { ...p, isCaptured: true } : p));
-          await new Promise(r => setTimeout(r, 500));
-          // Keyin o'chiramiz
-          setPieces(prev => prev.filter(p => !p.isCaptured));
-          await new Promise(r => setTimeout(r, 200));
-        } else {
-          await new Promise(r => setTimeout(r, 350));
+        // 1. Move the bot's piece to the current step's coordinates
+        currentPieces = currentPieces.map(p => {
+          if (p.id === fromPiece.id) {
+            let nextType = p.type;
+            if (p.type === "b" && step.r === 7) nextType = "bk"; // Animatsiya davomida damka qilish
+            return { ...p, r: step.r, c: step.c, type: nextType };
+          }
+          return p;
+        });
+        setPieces(currentPieces); // Update state to show the move
+        await new Promise(r => setTimeout(r, moveTime)); 
+
+        if (killId) { // If there's a piece to capture at this step
+          // 2. Mark the captured piece as 'isCaptured' for animation
+          currentPieces = currentPieces.map(p =>
+            p.id === killId ? { ...p, isCaptured: true } : p
+          );
+          setPieces(currentPieces); // Update state to show the captured piece turning red/fading
+          await new Promise(r => setTimeout(r, captureTime)); 
+
+          // 3. Remove the captured piece from the board
+          currentPieces = currentPieces.filter(p => p.id !== killId);
+          setPieces(currentPieces); // Update state to reflect removal
+          await new Promise(r => setTimeout(r, isMultiJump ? 350 : 50));
         }
       }
 
-      // Oxirgi nuqtada Damla (King) bo'lishini tekshirish
-      setPieces(prev => prev.map(p => {
-        if (p.id === fromPiece.id && p.type === "b" && p.r === 7) {
-          return { ...p, type: "bk" };
-        }
-        return p;
-      }));
-
+      // Reset turn and selected piece
       setIsWhiteTurn(true);
-      // Yurish tugagach tanlovni bekor qilamiz
       setSelectedId(null);
   };
 

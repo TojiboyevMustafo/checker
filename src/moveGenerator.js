@@ -73,7 +73,16 @@ export function getCaptureSequences(piece, pieces, isWhiteTurn) {
   for (const cap of captures) {
     const nextPieces = pieces
       .filter(p => p.id !== cap.target.id)
-      .map(p => p.id === piece.id ? { ...p, r: cap.to.r, c: cap.to.c } : p);
+      .map(p => {
+        if (p.id === piece.id) {
+          let nextType = p.type;
+          // Urish jarayonida damka liniyasiga yetsa, o'sha zahoti damka bo'ladi
+          if (p.type === "w" && cap.to.r === 0) nextType = "wk";
+          if (p.type === "b" && cap.to.r === 7) nextType = "bk";
+          return { ...p, r: cap.to.r, c: cap.to.c, type: nextType };
+        }
+        return p;
+      });
     
     const nextPiece = nextPieces.find(p => p.id === piece.id);
     const subSequences = getCaptureSequences(nextPiece, nextPieces, isWhiteTurn);
