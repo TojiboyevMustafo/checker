@@ -403,7 +403,7 @@ body {
 
 .btn-large-lbl span,
 .btn-large-lbl .btn-title.ant-typography {
-  color: white !important;
+  color: rgb(0, 0, 0) !important;
   margin: 0 !important;
   transition: color 0.2s;
 }
