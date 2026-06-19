@@ -23,7 +23,11 @@ export function minimax(pieces, depth, alpha, beta, isMaximizing, difficulty) {
   const legalMoves = getAllLegalMoves(pieces, !isMaximizing);
   const terminalValue = isGameOver(pieces, !isMaximizing, legalMoves);
   
-  if (depth === 0 || terminalValue !== null) {
+  if (terminalValue !== null) {
+    return { score: terminalValue };
+  }
+
+  if (depth === 0) {
     return { score: evaluateBoard(pieces) };
   }
 
@@ -69,7 +73,5 @@ export function minimax(pieces, depth, alpha, beta, isMaximizing, difficulty) {
  * Keshni tozalash (yangi yurishdan oldin)
  */
 export function clearCache() {
-  if (transpositionTable.size > 10000) {
-    transpositionTable.clear();
-  }
+  transpositionTable.clear();
 }

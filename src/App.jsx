@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { pickBotMove, formatBotMove } from "./ai";
 import { buildMatrix, getCaptureSequences } from "./moveGenerator";
 import { 
@@ -58,11 +58,27 @@ const { Title, Text, Paragraph } = Typography;
     const [isBotThinking, setIsBotThinking] = useState(false);
     const [hoveredIdx, setHoveredIdx] = useState(null);
     const [isFriendHovered, setIsFriendHovered] = useState(false);
+    const [pendingDifficulty, setPendingDifficulty] = useState(null);
+    const [playerIsWhite, setPlayerIsWhite] = useState(true);
 
     const [globalTime, setGlobalTime] = useState(600);
     const [turnTime, setTurnTime] = useState(30);
     const [winner, setWinner] = useState(null);
     const [isProcessing, setIsProcessing] = useState(false);
+
+    const piecesRef = useRef(pieces);
+    const isWhiteTurnRef = useRef(isWhiteTurn);
+    const playerIsWhiteRef = useRef(playerIsWhite);
+    const botDifficultyRef = useRef(botDifficulty);
+    const gameModeRef = useRef(gameMode);
+    const isProcessingRef = useRef(isProcessing);
+
+    useEffect(() => { piecesRef.current = pieces; }, [pieces]);
+    useEffect(() => { isWhiteTurnRef.current = isWhiteTurn; }, [isWhiteTurn]);
+    useEffect(() => { playerIsWhiteRef.current = playerIsWhite; }, [playerIsWhite]);
+    useEffect(() => { botDifficultyRef.current = botDifficulty; }, [botDifficulty]);
+    useEffect(() => { gameModeRef.current = gameMode; }, [gameMode]);
+    useEffect(() => { isProcessingRef.current = isProcessing; }, [isProcessing]);
 
     // Matrix faqat urilmagan toshlardan qurilishi kerak, shunda multi-jump hisob-kitobi buzilmaydi
     const boardMatrix = useMemo(() => buildMatrix(pieces.filter(p => !p.isCaptured)), [pieces]);
@@ -162,6 +178,9 @@ const { Title, Text, Paragraph } = Typography;
 
     const showMoveHints = false;
 
+    const isPlayerTurn = gameMode !== "bot" || (playerIsWhite ? isWhiteTurn : !isWhiteTurn);
+    const isBotTurn = gameMode === "bot" && !isPlayerTurn;
+
     useEffect(() => {
       if (!gameMode || winner) return;
       const timer = setInterval(() => {
@@ -194,7 +213,7 @@ const { Title, Text, Paragraph } = Typography;
     }, [isWhiteTurn, gameMode, pieces]);
 
     useEffect(() => {
-      if (gameMode === "bot" && !isWhiteTurn && !winner) {
+      if (gameMode === "bot" && isBotTurn && !winner && !isProcessing) {
         setIsBotThinking(true);
         const delay = 1000;
         const botDelay = setTimeout(async () => {
@@ -202,7 +221,7 @@ const { Title, Text, Paragraph } = Typography;
         }, delay);
         return () => clearTimeout(botDelay);
       }
-    }, [isWhiteTurn, winner, gameMode, botDifficulty]);
+    }, [isWhiteTurn, winner, gameMode, botDifficulty, playerIsWhite, isProcessing]);
 
     const formatTime = (seconds) => {
       const mins = Math.floor(seconds / 60);
@@ -217,7 +236,7 @@ const { Title, Text, Paragraph } = Typography;
       if (whitePieces.length === 0) {
         setWinner(
           gameMode === "bot"
-            ? "Bot wins! All your pieces are captured."
+            ? (playerIsWhite ? "Bot wins! All your pieces are captured." : "You win! All bot pieces captured.")
             : "Black wins!"
         );
         return;
@@ -225,7 +244,7 @@ const { Title, Text, Paragraph } = Typography;
       if (blackPieces.length === 0) {
         setWinner(
           gameMode === "bot"
-            ? "You win! All bot pieces captured."
+            ? (playerIsWhite ? "You win! All bot pieces captured." : "Bot wins! All your pieces are captured.")
             : "White wins!"
         );
         return;
@@ -240,8 +259,12 @@ const { Title, Text, Paragraph } = Typography;
         if (p.type.startsWith("b") && (validMoves.length > 0 || captures.length > 0)) hasBlackMoves = true;
       });
 
-      if (isWhiteTurn && !hasWhiteMoves) setWinner("Black wins! No more moves.");
-      if (!isWhiteTurn && !hasBlackMoves) setWinner("White wins! No more moves.");
+      if (isWhiteTurn && !hasWhiteMoves) {
+        setWinner(gameMode === "bot" ? (playerIsWhite ? "Bot wins! No more moves." : "You win! No more moves.") : "Black wins! No more moves.");
+      }
+      if (!isWhiteTurn && !hasBlackMoves) {
+        setWinner(gameMode === "bot" ? (playerIsWhite ? "You win! No more moves." : "Bot wins! No more moves.") : "White wins! No more moves.");
+      }
     };
 
     const applyMove = async (pieceId, row, col, capturedId) => {
@@ -306,7 +329,7 @@ const { Title, Text, Paragraph } = Typography;
 
   const handleCellClick = async (row, col) => {
     if (winner || isProcessing) return;
-    if (gameMode === "bot" && !isWhiteTurn) return;
+    if (gameMode === "bot" && !isPlayerTurn) return;
 
     const isPlayableCell = (row + col) % 2 === 1;
     if (!isPlayableCell) return;
@@ -363,7 +386,7 @@ const { Title, Text, Paragraph } = Typography;
       // Bot yurayotgan toshini "tanlangan" qilib belgilaymiz (z-index ko'tarilishi uchun)
       setSelectedId(fromPiece.id);
 
-      let currentPieces = [...pieces]; // Start with current pieces state for bot's turn
+      let currentPieces = [...piecesRef.current]; // Start with current pieces state for bot's turn
 
       for (let i = 0; i < steps.length; i++) { // Iterate through each step of the bot's move
         const step = steps[i]; // The square the bot's piece moves to
@@ -373,7 +396,8 @@ const { Title, Text, Paragraph } = Typography;
         currentPieces = currentPieces.map(p => {
           if (p.id === fromPiece.id) {
             let nextType = p.type;
-            if (p.type === "b" && step.r === 7) nextType = "bk"; // Animatsiya davomida damka qilish
+            if (p.type === "b" && step.r === 7) nextType = "bk";
+            if (p.type === "w" && step.r === 0) nextType = "wk";
             return { ...p, r: step.r, c: step.c, type: nextType };
           }
           return p;
@@ -396,19 +420,27 @@ const { Title, Text, Paragraph } = Typography;
         }
       }
 
-      // Reset turn and selected piece
-      setIsWhiteTurn(true);
+      // Navbat o'yinchiga o'tadi
+      setIsWhiteTurn(playerIsWhiteRef.current);
       setSelectedId(null);
+      setIsBotThinking(false);
   };
 
   const makeBotMove = async () => {
-    const rawMove = pickBotMove(pieces, botDifficulty);
+    const botPlaysWhite = !playerIsWhiteRef.current;
+    if (isWhiteTurnRef.current !== botPlaysWhite) {
+      setIsBotThinking(false);
+      return;
+    }
+
+    const rawMove = pickBotMove(piecesRef.current, botDifficultyRef.current, playerIsWhiteRef.current);
     const formatted = formatBotMove(rawMove);
     
     if (formatted) {
       await applyBotMove(formatted.fromPiece, formatted.to, formatted.capturedIds, formatted.path);
+    } else {
+      setIsBotThinking(false);
     }
-    setIsBotThinking(false);
   };
 
   const restartGame = () => {
@@ -420,10 +452,13 @@ const { Title, Text, Paragraph } = Typography;
     setWinner(null);
     setGameMode(null);
     setIsBotThinking(false);
+    setPendingDifficulty(null);
+    setPlayerIsWhite(true);
   };
 
-  const startGame = (mode, supka) => {
+  const startGame = (mode, supka, playAsWhite = true) => {
     setPieces(initialPieces);
+    setPlayerIsWhite(playAsWhite);
     setIsWhiteTurn(true);
     setSelectedId(null);
     setGlobalTime(600);
@@ -431,6 +466,7 @@ const { Title, Text, Paragraph } = Typography;
     setWinner(null);
     setGameMode(mode);
     setIsSupkaRule(supka);
+    setPendingDifficulty(null);
   };
 
   const isHintCell = (r, c) => {
@@ -446,12 +482,13 @@ const { Title, Text, Paragraph } = Typography;
   };
 
   if (!gameMode) {
-    // Cursor qaysi tugma ustida tursa, o'shaning emojisini ko'rsatish
+    const pendingDiff = pendingDifficulty !== null ? DIFFICULTIES[pendingDifficulty] : null;
     let displayEmoji = ""; 
-    if (isFriendHovered) displayEmoji = "🤝";
+    if (pendingDiff) displayEmoji = pendingDiff.avatar;
+    else if (isFriendHovered) displayEmoji = "🤝";
     else if (hoveredIdx !== null) displayEmoji = DIFFICULTIES[hoveredIdx].hoverAvatar;
 
-    const isHovering = hoveredIdx !== null || isFriendHovered;
+    const isHovering = pendingDiff || hoveredIdx !== null || isFriendHovered;
     if (!isHovering) displayEmoji = DIFFICULTIES[botDifficulty].avatar;
 
     return (
@@ -476,45 +513,100 @@ const { Title, Text, Paragraph } = Typography;
           </div>
 
           <Space direction="vertical" size="middle" style={{ width: '100%', marginTop: '20px' }}>
-            {DIFFICULTIES.map((d, idx) => (
-              <Button 
-                key={idx}
-                type={botDifficulty === idx ? "primary" : "default"}
-                block 
-                className={`casual-main-btn diff-btn-${idx}`}
-                onClick={() => {
-                  setBotDifficulty(idx);
-                  setHoveredIdx(null); // Bosilganda holatni tozalash
-                  startGame("bot", true);
-                }}
-                onPointerEnter={() => setHoveredIdx(idx)}
-                onPointerLeave={() => setHoveredIdx(null)}
-                style={{ height: 'auto', padding: '12px' }}
-              >
-                <div className="btn-arcade-content">
-                  <span className="btn-emoji-static">{d.avatar}</span>
-                  <div className="btn-large-lbl">
-                    <Title level={4} className="btn-title">{d.label}</Title>
-                  </div>
-                </div>
-              </Button>
-            ))}
+            {pendingDifficulty !== null ? (
+              <>
+                <Title level={4} className="color-select-title">
+                  {DIFFICULTIES[pendingDifficulty].label} — Choose Side
+                </Title>
+                <Text className="color-select-subtitle">Select which color you want to play</Text>
 
-            <Button 
-              block 
-              className="casual-main-btn friend-play-btn"
-              onClick={() => startGame("friends", true)}
-              onPointerEnter={() => setIsFriendHovered(true)}
-              onPointerLeave={() => setIsFriendHovered(false)}
-              style={{ height: 'auto', padding: '12px' }}
-            >
-              <div className="btn-arcade-content">
-                <span className="btn-emoji-static">👥</span>
-                <div className="btn-large-lbl">
-                  <Title level={4} className="btn-title">VS FRIEND</Title>
-                </div>
-              </div>
-            </Button>
+                <Button
+                  block
+                  type="primary"
+                  className="casual-main-btn color-btn-white"
+                  onClick={() => {
+                    setBotDifficulty(pendingDifficulty);
+                    startGame("bot", true, true);
+                  }}
+                  style={{ height: 'auto', padding: '14px' }}
+                >
+                  <div className="btn-arcade-content">
+                    <span className="btn-emoji-static">⚪</span>
+                    <div className="btn-large-lbl">
+                      <Title level={4} className="btn-title">PLAY AS WHITE</Title>
+                    </div>
+                  </div>
+                </Button>
+
+                <Button
+                  block
+                  className="casual-main-btn color-btn-black"
+                  onClick={() => {
+                    setBotDifficulty(pendingDifficulty);
+                    startGame("bot", true, false);
+                  }}
+                  style={{ height: 'auto', padding: '14px' }}
+                >
+                  <div className="btn-arcade-content">
+                    <span className="btn-emoji-static">⚫</span>
+                    <div className="btn-large-lbl">
+                      <Title level={4} className="btn-title">PLAY AS BLACK</Title>
+                    </div>
+                  </div>
+                </Button>
+
+                <Button
+                  block
+                  type="text"
+                  onClick={() => setPendingDifficulty(null)}
+                  style={{ color: '#94a3b8', marginTop: '4px' }}
+                >
+                  ← Back
+                </Button>
+              </>
+            ) : (
+              <>
+                {DIFFICULTIES.map((d, idx) => (
+                  <Button 
+                    key={idx}
+                    type={botDifficulty === idx ? "primary" : "default"}
+                    block 
+                    className={`casual-main-btn diff-btn-${idx}`}
+                    onClick={() => {
+                      setBotDifficulty(idx);
+                      setHoveredIdx(null);
+                      setPendingDifficulty(idx);
+                    }}
+                    onPointerEnter={() => setHoveredIdx(idx)}
+                    onPointerLeave={() => setHoveredIdx(null)}
+                    style={{ height: 'auto', padding: '12px' }}
+                  >
+                    <div className="btn-arcade-content">
+                      <span className="btn-emoji-static">{d.avatar}</span>
+                      <div className="btn-large-lbl">
+                        <Title level={4} className="btn-title">{d.label}</Title>
+                      </div>
+                    </div>
+                  </Button>
+                ))}
+
+                <Button 
+                  block 
+                  className="casual-main-btn friend-play-btn"
+                  onClick={() => startGame("friends", true)}
+                  onPointerEnter={() => setIsFriendHovered(true)}
+                  onPointerLeave={() => setIsFriendHovered(false)}
+                  style={{ height: 'auto', padding: '12px' }}
+                >
+                  <div className="btn-arcade-content">
+                    <span className="btn-emoji-static">👥</span>
+                    <div className="btn-large-lbl">
+                      <Title level={4} className="btn-title">VS FRIEND</Title>
+                    </div>
+                  </div>
+                </Button>
+              </>
+            )}
           </Space>
         </Card>
       </div>
@@ -573,7 +665,7 @@ const { Title, Text, Paragraph } = Typography;
         <div className="scoreboard-wrapper">
           <div className="score-item user-side">
             <span className="score-label">YOU</span>
-            <span className="score-number">{whiteCount}</span>
+            <span className="score-number">{playerIsWhite ? whiteCount : blackCount}</span>
           </div>
           
           <div className="vs-divider">VS</div>
@@ -582,7 +674,7 @@ const { Title, Text, Paragraph } = Typography;
             <span className="score-label">
               {gameMode === 'bot' ? 'BOT' : 'FRIEND'}
             </span>
-            <span className="score-number">{blackCount}</span>
+            <span className="score-number">{playerIsWhite ? blackCount : whiteCount}</span>
           </div>
         </div>
 
@@ -595,17 +687,17 @@ const { Title, Text, Paragraph } = Typography;
                   Array(8)
                     .fill(null)
                     .map((_, cIdx) => {
-                      const isDarkCell = (rIdx + cIdx) % 2 === 1;
-                      const hintType = isDarkCell ? isHintCell(rIdx, cIdx) : null;
-                      const piece = boardMatrix[rIdx][cIdx];
-                      const isSelected = piece?.id === selectedId;
-                      const isKing = piece && (piece.type === "wk" || piece.type === "bk");
+                      const r = playerIsWhite ? rIdx : 7 - rIdx;
+                      const c = playerIsWhite ? cIdx : 7 - cIdx;
+                      const isDarkCell = (r + c) % 2 === 1;
+                      const hintType = isDarkCell ? isHintCell(r, c) : null;
+                      const piece = boardMatrix[r][c];
 
                       return (
                         <div
                           key={`${rIdx}-${cIdx}`}
                           className={`cell ${isDarkCell ? "dark-cell" : "light-cell"}`}
-                          onClick={() => handleCellClick(rIdx, cIdx)}
+                          onClick={() => handleCellClick(r, c)}
                         >
                           {hintType && !piece && (
                             <span className={`hint-dot ${hintType === "capture" ? "hint-capture" : "hint-move"}`} />
@@ -622,13 +714,16 @@ const { Title, Text, Paragraph } = Typography;
                   const isBeingCaptured = p.isCaptured;
                   const hasSupka = pieceHasSupka(p);
 
+                  const displayR = playerIsWhite ? p.r : 7 - p.r;
+                  const displayC = playerIsWhite ? p.c : 7 - p.c;
+
                   return (
                     <div
                       key={p.id}
                       className={`piece ${isSelected ? "selected" : ""} ${hasSupka ? "has-supka" : ""} ${isBeingCaptured ? "is-captured" : ""}`}
                       style={{
                       // Faqat joylashuvni qoldiramiz, kichrayish effektini olib tashlaymiz
-                      transform: `translate(${p.c * 100}%, ${p.r * 100}%)`,
+                      transform: `translate(${displayC * 100}%, ${displayR * 100}%)`,
                         position: "absolute",
                         top: 0,
                         left: 0,

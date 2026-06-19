@@ -143,6 +143,38 @@ body {
 
 .difficulty-text { margin-top: 10px; }
 
+.color-select-title {
+  text-align: center;
+  margin: 0 !important;
+  color: #f8fafc !important;
+  letter-spacing: 1px;
+}
+
+.color-select-subtitle {
+  display: block;
+  text-align: center;
+  color: #94a3b8 !important;
+  margin-bottom: 8px;
+}
+
+.color-btn-white {
+  background: linear-gradient(135deg, #f8fafc, #cbd5e1) !important;
+  border: 2px solid #e2e8f0 !important;
+}
+
+.color-btn-white .btn-title {
+  color: #0f172a !important;
+}
+
+.color-btn-black {
+  background: linear-gradient(135deg, #334155, #0f172a) !important;
+  border: 2px solid #475569 !important;
+}
+
+.color-btn-black .btn-title {
+  color: #f8fafc !important;
+}
+
 .casual-avatar-emoji {
   font-size: 3rem;
   transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
